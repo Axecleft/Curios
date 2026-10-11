@@ -53,10 +53,10 @@ export class CuriosCraft {
   /** Is the crafter's copy of a spell arcane or divine (by the class of the spellbook it is in)? */
   listFor(actor, name) {
     const books = actor?.system?.attributes?.spells?.spellbooks ?? {};
-    const it = (actor?.items ?? []).find((i) => i.type === "spell" && normName(i.name) === normName(name));
+    const it = (actor?.items ?? []).find((i) => i.type === "spell" && (normName(i.name) === normName(name) || normName(D.enName(i)) === normName(name)));
     if (!it) return null;
     const b = books[it.system?.spellbook] ?? {};
-    const cls = `${b.class ?? ""} ${b.name ?? ""}`.toLowerCase();
+    const cls = `${D.classEn(b.class ?? "")} ${b.name ?? ""}`.toLowerCase();
     if (D.ARCANE.some((c) => cls.includes(c.toLowerCase()))) return "arcane";
     if (D.DIVINE.some((c) => cls.includes(c.toLowerCase()))) return "divine";
     return null;
@@ -179,10 +179,9 @@ export class CuriosItemCraft {
       if (!/magic|wondrous|enchant|curio|universal|psionic/i.test(label) && h.pack !== "D35E.magicitems") continue;
       if (!r.epic && this.api.isEpic(h.name)) continue;
       if (!r.psionics && this.api.isPsionic(h.name)) continue;
-      const doc = game.packs.get(h.pack)?.index?.get?.(h.id);
-      if (doc && doc.type && doc.type !== "equipment") continue; // arms and armor are the Armory's
+      if (h.type && h.type !== "equipment") continue; // arms and armor are the Armory's
       if (crownRow(this.api, h.name)) continue; // psicrowns have their own tab (Crystals, psicrowns)
-      add(h.name, groupOf(this.api, h.name, null));
+      add(h.display ?? h.name, groupOf(this.api, h.name, null)); // shown as named in this world, sorted by its English name
     }
     // Table versions of general items (Ioun stones, figurines, carpets…) and SRD items D35E lacks
     for (const k of ["rings", "rods", "staffs", "wondrous"]) for (const row of this.api.data.tables[k]) {
@@ -214,13 +213,21 @@ export class CuriosItemCraft {
     fill();
   }
 
+  /** D35E's English construction line for an item (data/prereqs.json), or null. */
+  async englishLine(name) {
+    this.lines ??= foundry.utils.fetchJsonWithTimeout(`modules/${MOD}/data/prereqs.json`).then((d) => {
+      const m = new Map(); for (const [k, v] of Object.entries(d.lines ?? {})) m.set(normName(k), v); return m;
+    }).catch(() => new Map());
+    return (await this.lines).get(normName(name)) ?? null;
+  }
+
   /** Feat names in D35E's Feats compendium and any compendium called "feats" (to tell "Empower Spell" from a spell). */
   async featNames() {
     if (this.feats) return this.feats;
     const out = new Set();
     for (const pack of game.packs ?? []) {
       if (pack.documentName !== "Item" || !(pack.collection === "D35E.feats" || /\bfeats?\b/i.test(pack.metadata?.label ?? ""))) continue;
-      try { for (const e of await pack.getIndex()) out.add(normName(e.name)); } catch (e) { /* unreadable */ }
+      try { for (const e of await D.enIndex(pack)) { out.add(normName(e.name)); if (e.display) out.add(normName(e.display)); } } catch (e) { /* unreadable */ }
     }
     this.feats = out;
     return out;
@@ -268,11 +275,15 @@ export class CuriosItemCraft {
     let html = data.system?.description?.value ?? "";
     const link = linkedDescription(html);
     if (link) { try { html = (await fromUuid(link.startsWith("Compendium.") ? link : `Compendium.${link}`))?.system?.description?.value ?? html; } catch (e) { /* keep */ } }
+    // A translated description (Babele) can't be read: D35E's English line for the item, by its English name (data/prereqs.json, 1.14.9)
+    const enItem = D.enName(data);
+    const english = await this.englishLine(enItem);
+    if (english && (!/^en\b/i.test(game.i18n?.lang ?? "en") || !parsePrereqs(html, { itemName: enItem }))) html = english;
     const C = globalThis.AxecleftCrafting;
     const feats = C?.actor?.feats(actor) ?? new Set();
     const known = await this.featNames();
-    const pre = parsePrereqs(html, { spell: (x) => this.api.spells.resolveName(x), isFeat: (x) => feats.has(normName(x)) || known.has(normName(x)), itemName: data.name });
-    const group = groupOf(this.api, data.name, data.system?.slot);
+    const pre = parsePrereqs(html, { spell: (x) => this.api.spells.resolveName(x), isFeat: (x) => feats.has(normName(x)) || known.has(normName(x)), itemName: enItem });
+    const group = groupOf(this.api, enItem, data.system?.slot);
     const defFeat = GROUPS.find(([k]) => k === group)?.[2] ?? "Craft Wondrous Item";
     const plan = { magic: true, name: data.name, img: data.img, data, quantity: Number(data.system?.quantity) || 1, market: base, base, requirements: [], checks: [], notes: [], spells: [] };
     if (lit) plan.notes.push("Sheds light (decided at creation).");
@@ -283,7 +294,7 @@ export class CuriosItemCraft {
     }
     const intelCl = v.intel ? 15 : 0;
     if (/minor artifact|major artifact|cannot be created/i.test(plainText(html))) throw new Error(`${data.name} is an artifact; it can't be made.`);
-    if (this.api.isEpic(data.name)) plan.epic = true;
+    if (this.api.isEpic(enItem)) plan.epic = true;
     if (!pre) {
       plan.feat = defFeat;
       plan.casterLevel = Math.max(CREATION_FEATS[normName(defFeat)] || 1, intelCl);
@@ -293,9 +304,9 @@ export class CuriosItemCraft {
     }
     const creation = pre.feats.filter((f) => CREATION_FEATS[normName(f)] !== undefined);
     plan.feat = creation.find((f) => !/epic/i.test(f)) ?? creation[0] ?? defFeat;
-    if (this.api.isEpic(data.name) || pre.feats.some((f) => /epic/i.test(f))) plan.epic = true; // the engine (1.6) applies the SRD epic rules
+    if (this.api.isEpic(enItem) || pre.feats.some((f) => /epic/i.test(f))) plan.epic = true; // the engine (1.6) applies the SRD epic rules
     // Caster level: the creation feats' minimums, "caster level 11th", "three times the bonus"
-    const bonus = Number(data.name.match(/\+(\d+)/)?.[1]) || 0;
+    const bonus = Number(enItem.match(/\+(\d+)/)?.[1] ?? data.name.match(/\+(\d+)/)?.[1]) || 0;
     const why = [];
     let cl = 1;
     for (const f of creation) { const m = CREATION_FEATS[normName(f)]; if (m > cl) { cl = m; why.push(`${f} ${m}`); } }
@@ -365,14 +376,14 @@ export class CuriosAlchemy {
       const pack = game.packs.get(id);
       if (!pack || pack.documentName !== "Item") continue;
       let index;
-      try { index = await pack.getIndex({ fields: ["system.price", "type", "system.tags"] }); } catch (e) { continue; }
+      try { index = await D.enIndex(pack, { fields: ["system.price", "type", "system.tags"] }); } catch (e) { continue; }
       for (const e of index) {
         if (e.type === "Folder") continue;
         const k = normName(e.name);
         const tagged = T()?.readShopTags?.(e.system?.tags)?.cats?.includes("mundane:alchemical");
         if (out.has(k)) { const a = out.get(k); a.pack ??= id; a.id ??= e._id; continue; }
         if (!(ALCH_RE.test(e.name) || tagged) || /\blab\b|holy water|unholy water|everburning/i.test(e.name)) continue;
-        out.set(k, { name: e.name, price: Number(e.system?.price) || 0, dc: null, pack: id, id: e._id });
+        out.set(k, { name: e.display ?? e.name, price: Number(e.system?.price) || 0, dc: null, pack: id, id: e._id });
       }
     }
     this.list = [...out.values()].sort((a, b) => a.name.localeCompare(b.name));

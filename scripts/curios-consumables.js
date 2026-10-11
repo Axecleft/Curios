@@ -45,10 +45,10 @@ export class CuriosSpells {
     if (this.cache && !force) return this.cache;
     const hub = T();
     const out = { spells: new Map(), powers: new Map() };
+    // Keyed by English name (Babele worlds: the hub's index gives English names) and by the shown name, so a spell typed in French is found too
     const add = (map, x) => {
-      const k = normName(x.name);
-      const list = map.get(k) ?? map.set(k, []).get(k);
-      list.push({ ...x, facts: D.spellFacts(x.entry) });
+      const hit = { ...x, display: x.display ?? x.entry?.display ?? x.name, facts: D.spellFacts(x.entry) };
+      for (const k of new Set([normName(x.name), normName(hit.display)])) (map.get(k) ?? map.set(k, []).get(k)).push(hit);
     };
     const prefer = this.api.setting("preferModules");
     const order = (list) => prefer ? [...list].sort((a, b) => Number(a.pack.startsWith("D35E.")) - Number(b.pack.startsWith("D35E."))) : list;
@@ -84,8 +84,11 @@ export class CuriosSpells {
     const idx = await this.index();
     const src = list === "psionic" ? idx.powers : idx.spells;
     const out = [];
+    const seen = new Set();
     for (const [, hits] of src) {
       const h = hits[0];
+      if (seen.has(h)) continue; // listed under its English and its shown name
+      seen.add(h);
       const lv = list === "arcane" ? h.facts.arcane : list === "divine" ? h.facts.divine : h.facts.psionic;
       if (lv === level) out.push(h);
     }
@@ -95,10 +98,13 @@ export class CuriosSpells {
   /** Spells on a class's list (D35E learnedAt), by level: Map(level -> [hit]). "Wizard" also matches "Sorcerer/Wizard". */
   async forClass(cls) {
     const idx = await this.index();
-    const want = normName(cls);
+    const want = normName(D.classEn(cls)); // "Magicien" counts as Wizard (Babele)
     const out = new Map();
+    const seen = new Set();
     for (const [, hits] of idx.spells) {
       const h = hits[0];
+      if (seen.has(h)) continue;
+      seen.add(h);
       const lv = h.facts.classes.find(([c]) => normName(c) === want)?.[1];
       if (lv === undefined || !Number.isFinite(lv)) continue;
       (out.get(lv) ?? out.set(lv, []).get(lv)).push(h);
@@ -172,7 +178,8 @@ export class CuriosSpells {
     const price = Math.max(0.5, effLevel) * cl * k.mult + (comp.gp + comp.xp * 5) * per;
     data.system.price = price;
     const words = mm.map((x) => (x.key === "heighten" ? `Heightened (${heightTo}${heightTo === 1 ? "st" : heightTo === 2 ? "nd" : heightTo === 3 ? "rd" : "th"})` : METAMAGIC[x.key].word));
-    data.name = `${k.label} of ${words.length ? `${words.join(" ")} ` : ""}${hit.name}${cl > minCl || mm.length ? ` (${k.psionic ? "ML" : "CL"} ${cl})` : ""}`;
+    // The spell as shown in this world (a translated name with Babele); the English name stays in the flags for matching
+    data.name = `${k.label} of ${words.length ? `${words.join(" ")} ` : ""}${hit.display ?? hit.name}${cl > minCl || mm.length ? ` (${k.psionic ? "ML" : "CL"} ${cl})` : ""}`;
     if (mm.length) {
       const desc = data.system.description ??= {};
       desc.value = `<p><strong>${esc(mm.map((x) => METAMAGIC[x.key].feat).join(", "))}:</strong> ${esc(hit.name)} as a ${effLevel}${effLevel === 1 ? "st" : effLevel === 2 ? "nd" : effLevel === 3 ? "rd" : "th"}-level spell, caster level ${cl}. Apply the metamagic when it is used.</p>${desc.value ?? ""}`;
@@ -181,7 +188,8 @@ export class CuriosSpells {
     // Oils: potions of spells cast on objects (bless weapon, magic vestment)
     const target = String(spell.system?.target?.value ?? spell.system?.target ?? "");
     if (kind === "potion" && /\b(weapon|armor|shield|object)\b/i.test(target) && !/\b(creature|you)\b/i.test(target)) data.name = data.name.replace(/^Potion/, "Oil");
-    foundry.utils.setProperty(data, `flags.${MOD}`, { kind, spell: hit.name, level, effLevel, metamagic: mm, cl, epic, list: list ?? (f.isPower ? "psionic" : null), source: hit.pack });
+    foundry.utils.setProperty(data, "flags.world.axecleftEn", `${k.label} of ${words.length ? `${words.join(" ")} ` : ""}${hit.name}`); // its English identity (Axecleft's Tools 8)
+    foundry.utils.setProperty(data, `flags.${MOD}`, { kind, spell: hit.name, spellShown: hit.display ?? hit.name, level, effLevel, metamagic: mm, cl, epic, list: list ?? (f.isPower ? "psionic" : null), source: hit.pack });
     if (spec.unidentified) D.setUnidentified(data, k.unid);
     // base: the magic alone (what crafting halves and divides by 25); comp: component costs the item carries
     return { data, name: data.name, price, level, effLevel, metamagic: mm, epic, cl, problems, hit, minCl, list, base: Math.max(0.5, effLevel) * cl * k.mult, comp: { gp: comp.gp * per, xp: comp.xp * per } };

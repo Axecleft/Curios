@@ -1,5 +1,27 @@
 # Axecleft's Curios — changelog
 
+## 1.14.10
+
+- **Pearls of power work** (SRD): D35E's Pearl of Power (1st) to (9th) and Pearl of Power, Two Spells get daily uses on a character (restored when it rests). Using one lists the prepared spells of its level cast today and prepares the chosen one again; the two-spell pearl recalls two spells a day of different levels, 6th or lower. Found by English name, so translated pearls work too.
+- New setting, **Pearls of power for spontaneous casters** (house rule, off): sorcerers, bards and other spontaneous casters regain a used spell slot of the pearl's level.
+
+## 1.14.9
+
+- **Worlds in other languages** (Babele-translated compendiums, French, Spanish, Portuguese…): spells, powers and magic items are found by their English names, so random potions, scrolls, wands, rings, rods, staffs, wondrous items, psicrowns, the Curios tab and crafting work there as in English. Spells and items typed in your language are found too.
+  - Spell levels and scroll types read translated class names ("Magicien" is a Wizard); the spellbook rule and spellbook classes too.
+  - Costly material and XP components are read in French, Spanish and Portuguese text ("d'une valeur de 250 po", "Coût en PX").
+  - Crafting rings, rods, staffs and wondrous items reads D35E's English construction line for the item (new data/prereqs.json), since a translated description can't be read.
+  - Psicrowns are recognized by their English name ("Dominateur" is the Dominator) and their translated text.
+  - Generated items show spells and items under their translated names, and keep their English name for the tools.
+- Axecleft's Tools 8: in a world not in English, naming or renaming an item asks for its English name (optional; Skip / Don't ask again), and item sheets get an "English name" button, so items made in your language are recognized by the treasure, merchant and crafting tools.
+- Fix: "Staff of Nature's Fury" and similar names no longer capitalize the letter after an apostrophe.
+- Ships the Treasure Generator 9.92 and the Crafting engine 1.7.
+- Item names still mix languages ("Scroll of Boule de feu"); translated names come with the language files.
+
+## 1.14.8.1
+
+- Psicrown powers no longer show as empty (greyed out) in the inventory: they show the crown's power points, and follow them as the crown is used. They always spent the crown's points; D35E's inventory just read the power item's own (empty) uses.
+
 ## 1.14.8
 
 - **Cognizance crystals** (SRD, while Psionics is on): crystals storing 1–17 power points, at SRD prices ((PP + 1) ÷ 2)² × 1,000 gp. Using one (its Use button) opens a dialog:

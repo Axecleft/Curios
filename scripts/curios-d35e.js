@@ -23,8 +23,15 @@ export const KINDS = {
 };
 
 /** "figurine of wondrous power, onyx dog" -> "Figurine of Wondrous Power, Onyx Dog". */
-export const titleCase = (s) => String(s ?? "").replace(/\b([a-z])([a-z']*)/g, (w, a, b, i) => (i > 0 && /^(of|and|the|from|to|in|into|with|a|an|or|vs)$/.test(w) ? w : a.toUpperCase() + b));
-const normName = (s) => String(s ?? "").toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9']+/g, " ").trim();
+export const titleCase = (s) => String(s ?? "").replace(/\b([a-zA-Z])([a-zA-Z'’]*)/g, (w, a, b, i) => (i > 0 && /^(of|and|the|from|to|in|into|with|a|an|or|vs)$/.test(w) ? w : a.toUpperCase() + b));
+// Letters in any language are kept ("Épée bâtarde"), so names typed in French, Spanish or Portuguese match too (1.14.9)
+const normName = (s) => String(s ?? "").toLowerCase().normalize("NFC").replace(/[’']/g, "'").replace(/[^\p{L}\p{N}']+/gu, " ").trim();
+/** An item's English name (Axecleft's Tools 8: Babele's original name, an English name the user gave it), else its name. */
+export const enName = (x, opts = {}) => globalThis.AxecleftTools?.enName?.(x, opts) ?? x?.name ?? "";
+/** A class name in English ("Magicien" -> "Wizard"), from Babele's class translations. */
+export const classEn = (name) => globalThis.AxecleftTools?.classEn?.(name) ?? name;
+/** A compendium index with English names (display: the shown name). */
+export const enIndex = async (pack, opts = {}) => (globalThis.AxecleftTools?.enIndex ? globalThis.AxecleftTools.enIndex(pack, opts) : [...await pack.getIndex(opts)]);
 export { normName };
 
 /* ---------- spells and powers ---------- */
@@ -32,7 +39,8 @@ export { normName };
 /** The classes a spell or power is on: [[class, level], ...] (D35E joins some as "Sorcerer/Wizard"). */
 export function learnedAt(sys) {
   const out = [];
-  for (const [cls, lvl] of sys?.learnedAt?.class ?? []) for (const c of String(cls).split("/")) out.push([c.trim(), Number(lvl)]);
+  // Class names may be translated (Babele): "Magicien" counts as Wizard
+  for (const [cls, lvl] of sys?.learnedAt?.class ?? []) for (const c of String(cls).split("/")) out.push([classEn(c.trim()), Number(lvl)]);
   return out;
 }
 
@@ -68,12 +76,15 @@ export const minCasterLevel = (level) => (level <= 1 ? 1 : 2 * level - 1);
 export function componentCosts(data) {
   const s = data.system ?? {};
   const mat = String(s.materials?.value ?? "");
-  const desc = String(s.description?.value ?? "").replace(/<[^>]+>/g, " ");
+  const desc = String(s.description?.value ?? s.shortDescription ?? "").replace(/<[^>]+>/g, " ");
   let gp = 0, xp = 0;
-  const m = mat.match(/(?:worth|costing|value of)\s+(?:a total of\s+)?(?:at least\s+)?([\d,]+)\s*gp/i) ?? mat.match(/([\d,]+)\s*gp/i);
-  if (m) gp = Number(m[1].replace(/,/g, "")) || 0;
-  const x = desc.match(/XP\s*Cost\s*:?\s*([\d,]+)\s*XP/i);
-  if (x) xp = Number(x[1].replace(/,/g, "")) || 0;
+  // English "worth 250 gp"; French "d'une valeur de 250 po"; Spanish "por valor de 250 po"; Portuguese "no valor de 250 PO"
+  const num = (v) => Number(String(v).replace(/[\s,.](?=\d{3}\b)/g, "").replace(",", ".")) || 0;
+  const m = mat.match(/(?:worth|costing|value of|valeur(?: d'au moins| de)?|valor(?: de)?|vale)\s+(?:a total of\s+|au moins\s+|al menos\s+|pelo menos\s+)?(?:at least\s+)?([\d][\d .,]*)\s*(?:gp|po|pz)\b/i) ?? mat.match(/([\d][\d .,]*)\s*(?:gp|po)\b/i);
+  if (m) gp = num(m[1]);
+  // "XP Cost: 500 XP"; "Coût en PX : 500 PX"; "Coste en PX: 500 PX"; "Custo em XP: 500 XP"
+  const x = desc.match(/(?:XP\s*Cost|Co[uû]t en PX|Coste en PX|Custo em XP)\s*:?\s*([\d][\d .,]*)\s*(?:XP|PX)/i);
+  if (x) xp = num(x[1]);
   return { gp, xp };
 }
 
@@ -161,9 +172,9 @@ export function spellbooksOf(actor) {
 
 /** The actor's spellbook key for a class name ("Wizard"), or null. */
 export function spellbookFor(actor, cls) {
-  const want = normName(cls);
+  const want = normName(classEn(cls));
   if (!want) return null;
-  const hit = spellbooksOf(actor).find((b) => normName(b.cls) === want || normName(b.cls).includes(want) || normName(b.name).includes(want));
+  const hit = spellbooksOf(actor).find((b) => { const c = normName(classEn(b.cls)); return c === want || c.includes(want) || normName(b.name).includes(want) || normName(b.name).includes(normName(cls)); });
   return hit?.key ?? null;
 }
 

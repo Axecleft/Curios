@@ -43,7 +43,7 @@ export class CuriosWorkshop {
       if (!/magic|wondrous|enchant|curio/i.test(label) && h.pack !== "D35E.magicitems") continue;
       if (!r.epic && this.api.isEpic(h.name)) continue;
       if (!r.psionics && this.api.isPsionic(h.name)) continue;
-      list.push(h.name);
+      list.push(h.display ?? h.name); // as named in this world (Babele); found by either name
     }
     this.itemList = [...new Set(list)].sort((a, b) => a.localeCompare(b));
   }

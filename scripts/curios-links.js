@@ -42,7 +42,7 @@ export function masterDescription(kind, contents, extra = "") {
     const f = c.data?.flags?.[MOD] ?? {};
     const lvl = Number.isFinite(f.level) ? `${ordinal(f.level)}` : "";
     const cl = f.cl ? `, ${kind === "powerstone" ? "ML" : "CL"} ${f.cl}` : "";
-    return `<li>${c.used ? "<s>" : ""}${esc(f.spell ?? c.name)}${lvl || cl ? ` <small>(${lvl}${cl})</small>` : ""}${c.used ? "</s> <small>(used)</small>" : ""}</li>`;
+    return `<li>${c.used ? "<s>" : ""}${esc(f.spellShown ?? f.spell ?? c.name)}${lvl || cl ? ` <small>(${lvl}${cl})</small>` : ""}${c.used ? "</s> <small>(used)</small>" : ""}</li>`;
   }).join("");
   const head = kind === "book" ? "<p><strong>Spellbook.</strong> Its spells are added to the owner's spells while the book is carried.</p>"
     : `<p><strong>${kind === "powerstone" ? "Power stone" : "Scroll"} with ${contents.length} ${what}.</strong> While carried, each one is a separate ${kind === "powerstone" ? "power stone" : "scroll"} in the inventory; once used it is gone.</p>`;
@@ -54,7 +54,7 @@ export function masterDescription(kind, contents, extra = "") {
  */
 export function makeMaster(kind, made, { unidentified = false, name = null } = {}) {
   const contents = made.map((m, i) => ({ key: `c${i + 1}`, name: m.name, data: m.data, used: false }));
-  const spells = made.map((m) => m.data.flags?.[MOD]?.spell ?? m.name);
+  const spells = made.map((m) => m.data.flags?.[MOD]?.spellShown ?? m.data.flags?.[MOD]?.spell ?? m.name);
   const label = kind === "powerstone" ? "Power Stone" : "Scroll";
   const title = name ?? `${label} of ${spells.length > 3 ? `${spells.slice(0, 3).join(", ")} and ${spells.length - 3} more` : spells.join(", ").replace(/, ([^,]*)$/, " and $1")}`;
   const price = made.reduce((a, m) => a + (Number(m.price) || 0), 0);
@@ -107,6 +107,8 @@ export async function spawnChildren(master) {
       d.system.quantity = 1;
       d.system.identified = master.system?.identified !== false;
       d.system.linkedChargeItem = { id: master.id, name: master.name, img: master.img };
+      // Shown as the crown's points (D35E's inventory reads the item's own uses to grey it out); D35E spends the crown's
+      d.system.uses = { ...(d.system.uses ?? {}), value: Number(master.system?.uses?.value) || 0, max: Number(master.system?.uses?.max) || 0 };
       if (!d.system.identified) foundry.utils.setProperty(d, "system.unidentified.name", "Psicrown power");
     } else if (f.master === "book") {
       d.system.spellbook = book ?? "primary";
@@ -203,8 +205,8 @@ export function registerLinkHooks(api) {
     if (next === undefined || Number(next) <= D.preparedAmount(item.system)) return;
     const book = item.actor.system?.attributes?.spells?.spellbooks?.[item.system?.spellbook];
     const classes = String(api.setting("bookClasses") ?? "Wizard").split(",").map((s) => normName(s)).filter(Boolean);
-    if (!book || !classes.some((c) => normName(book.class).includes(c) || normName(book.name).includes(c))) return;
-    if (normName(item.name) === "read magic") return; // SRD: a wizard can prepare read magic without a spellbook
+    if (!book || !classes.some((c) => normName(D.classEn(book.class)).includes(c) || normName(book.class).includes(c) || normName(book.name).includes(c))) return;
+    if (normName(D.enName(item)) === "read magic" || normName(item.name) === "read magic") return; // SRD: a wizard can prepare read magic without a spellbook
     const fromBook = childOf(item)?.kind === "book" || item.actor.items.some((i) => childOf(i)?.kind === "book" && normName(i.name) === normName(item.name));
     if (fromBook) return;
     const msg = `${item.name} isn't in a spellbook ${item.actor.name} carries, so it can't be prepared (Curios: spellbook rule).`;

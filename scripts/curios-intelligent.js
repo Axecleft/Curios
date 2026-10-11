@@ -12,6 +12,7 @@
  */
 const MOD = "axeclefts-curios";
 const T = () => globalThis.AxecleftTreasure;
+const D = { enName: (x) => globalThis.AxecleftTools?.enName?.(x) ?? x?.name ?? "" };
 const normName = (s) => String(s ?? "").toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9']+/g, " ").trim();
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const d100 = () => 1 + Math.floor(Math.random() * 100);
@@ -60,7 +61,7 @@ export class CuriosIntelligence {
     const out = {};
     const NAME = { alignment: /alignment/i, capabilities: /capabilit|mental/i, lesser: /lesser/i, greater: /greater/i, purpose: /purpose/i, dedicated: /dedicated/i };
     for (const kind of Object.keys(NAME)) {
-      const t = docs.find((d) => d.id === cfg[kind] || d._id === cfg[kind]) ?? docs.find((d) => NAME[kind].test(d.name));
+      const t = docs.find((d) => d.id === cfg[kind] || d._id === cfg[kind]) ?? docs.find((d) => NAME[kind].test(D.enName(d)) || NAME[kind].test(d.name)); // English name first (Babele)
       if (!t) continue;
       out[kind] = [...(t.results ?? [])].map((r) => ({
         range: r.range, text: r.description || r.text || r.name || "", uuid: r.documentUuid ?? null,

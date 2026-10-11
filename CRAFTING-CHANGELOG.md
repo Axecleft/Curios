@@ -1,5 +1,9 @@
 # Axecleft's Crafting (shared engine) — changelog
 
+## 1.7
+
+- **Worlds in other languages**: the crafter's feats, spells and classes are matched by their English names too (Babele's original names, or English names the user gave them), and Craft sub-skills named in French, Spanish or Portuguese are recognized (armes, armures, arcs, alchimie, pièges; armas, armaduras, arcos, alquimia, trampas; armas, armaduras, arcos, alquimia, armadilhas).
+
 ## 1.6
 
 - **Epic items** (SRD Epic Magic Items): a plan marked epic by its kind, or over the nonepic limits (market price above 200,000 gp or caster level above 20), uses the epic rules:

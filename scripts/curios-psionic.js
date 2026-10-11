@@ -85,9 +85,10 @@ export function crownRow(api, name) {
 /** Facts read from an item's own text: "This psicrown has 450 power points" … "ML 9th; Craft Psicrown, a, b, c; Price". */
 export function crownFromText(html) {
   const t = plain(html);
-  const pp = Number(t.match(/psicrown has ([\d,]+) power points/i)?.[1]?.replace(/,/g, ""));
+  // English, French, Spanish, Portuguese: "This psicrown has 450 power points" / "possède 450 points psi" / "tiene 450 puntos de poder" / "possui 450 pontos de poder"
+  const pp = Number(t.match(/(?:psicrown has|poss[eè]de|tiene|possui)\s+([\d][\d .,]*)\s*(?:power points|points psi|points de pouvoir|puntos de poder|pontos de poder)/i)?.[1]?.replace(/[\s.,]/g, ""));
   if (!pp) return null;
-  const ml = Number(t.match(/\bML (\d+)/)?.[1]) || Math.round(pp / 50);
+  const ml = Number(t.match(/\b(?:ML|NM)\s*(\d+)/)?.[1]) || Math.round(pp / 50);
   const line = t.match(/Craft Psicrown\s*,([^;]+);/i)?.[1] ?? "";
   const powers = line.split(",").map((s) => s.trim()).filter(Boolean);
   return { pp, ml, powers };
@@ -96,7 +97,7 @@ export function crownFromText(html) {
 /** Is this item data (or item) a psicrown that Curios hasn't set up yet? Returns { row?, pp, ml, powers } or null. */
 export function crownFacts(api, data) {
   if (!data || data.type !== "equipment" || data.flags?.[MOD]?.master) return null;
-  const row = crownRow(api, data.name);
+  const row = crownRow(api, D.enName(data)) ?? crownRow(api, data.name); // English name first (Babele: "Dominateur" is the Dominator)
   if (row) return { row, pp: row.pp, ml: row.ml, powers: row.powers };
   return crownFromText(data.system?.description?.value);
 }
@@ -110,7 +111,7 @@ async function crownPower(api, crown, power, ml) {
   const level = Number(hit.facts.psionic ?? hit.facts.level) || 0;
   const cost = powerCost(level);
   const d = m.data;
-  d.name = `${bareCrownName(crown)}: ${hit.name}`;
+  d.name = `${bareCrownName(crown)}: ${hit.display ?? hit.name}`; // the power as shown in this world (Babele)
   Object.assign(d.system, {
     price: 0, weight: 0, quantity: 1, identifiedName: d.name,
     uses: { ...(d.system.uses ?? {}), value: 0, max: 0, per: "charges", maxFormula: "", chargesPerUse: cost, autoDeductCharges: true },
@@ -118,7 +119,7 @@ async function crownPower(api, crown, power, ml) {
   const desc = d.system.description ??= {};
   desc.value = `<p><strong>Psicrown power.</strong> Manifested from ${esc(crown)}'s power points: ${cost} per use, at manifester level ${ml} (the wearer's own manifester level if it is higher: adjust the roll). Augmenting: spend the extra points from the psicrown (use the psicrown); the total can't exceed the wearer's manifester level. The psicrown must be worn.</p>${desc.value ?? ""}`;
   foundry.utils.setProperty(d, `flags.${MOD}.crownPower`, { level, cost, ml });
-  return { key: `p${normName(hit.name).replace(/\s+/g, "-")}`, name: hit.name, data: d, used: false, cost, level };
+  return { key: `p${normName(hit.name).replace(/\s+/g, "-")}`, name: hit.display ?? hit.name, data: d, used: false, cost, level };
 }
 
 /** The psicrown master block: its points and powers. */
@@ -374,4 +375,19 @@ export function registerPsionicHooks(api) {
     } catch (err) { console.error(`${MOD} | could not set up the psicrown ${item.name}`, err); }
   });
 
+  // D35E's inventory shows a power as empty when its own uses are 0 (it doesn't read linked charges there), though it
+  // manifests from the crown. Mirror the crown's points onto its powers for display (1.14.8.1); D35E still spends the crown's.
+  Hooks.on("updateItem", async (item, changes, options, userId) => {
+    if (userId !== game.user.id || !isCrown(item) || !item.actor) return;
+    if (foundry.utils.getProperty(changes, "system.uses") === undefined) return;
+    await syncCrownPowers(item);
+  });
+}
+
+/** Copy a crown's points onto its power items (display only). */
+export async function syncCrownPowers(crown) {
+  const value = Number(crown.system?.uses?.value) || 0, max = Number(crown.system?.uses?.max) || 0;
+  const kids = crownPowers(crown.actor, crown).filter((k) => Number(k.system?.uses?.value) !== value || Number(k.system?.uses?.max) !== max);
+  if (!kids.length) return;
+  await crown.actor.updateEmbeddedDocuments("Item", kids.map((k) => ({ _id: k.id, "system.uses.value": value, "system.uses.max": max })), { [SKIP_HOOK]: true });
 }

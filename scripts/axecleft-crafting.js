@@ -34,7 +34,7 @@
  * both the nonepic and the epic creation feat (plan.epicFeat, or the epic version of plan.feat), only while the shared Epic
  * items switch is on; time 1 day per 10,000 gp of base price (Axecleft house rule; reported, not enforced).
  */
-const AXECLEFT_CRAFTING_VERSION = 1.6;
+const AXECLEFT_CRAFTING_VERSION = 1.7;
 const AXECLEFT_CRAFTING_HOST = (() => {
   try { return decodeURIComponent(new URL(import.meta.url).pathname).match(/\/modules\/([^/]+)\//)?.[1] ?? null; } catch (e) { return null; }
 })();
@@ -88,8 +88,17 @@ const AXECLEFT_CRAFTING_HOST = (() => {
   /*  Reading the crafter (D35E actor)          */
   /* ------------------------------------------ */
   const sys = (a) => a?.system ?? {};
+  /** An owned item's names to match on: its English name (Axecleft's Tools 8: Babele, an English name the user gave it) and its own. */
+  const namesOf = (i) => [...new Set([globalThis.AxecleftTools?.enName?.(i) ?? i.name, i.name].map(normName))];
+  /** Craft skills by their English name and the usual French, Spanish and Portuguese ones (a sub-skill's name is typed by the player). */
+  const CRAFT_WORDS = {
+    weaponsmithing: ["weaponsmith", "armes", "fabrication d'armes", "armero", "armería", "fabricación de armas", "armeiro", "armas"],
+    armorsmithing: ["armorsmith", "armoursmith", "armures", "fabrication d'armures", "armadurero", "armaduras", "fabricación de armaduras"],
+    bowmaking: ["bowyer", "arcs", "fabrication d'arcs", "arquero", "arcos", "fabricación de arcos", "arqueiro"],
+    alchemy: ["alchimie", "alquimia"], trapmaking: ["pièges", "fabrication de pièges", "trampas", "fabricación de trampas", "armadilhas"],
+  };
   const actorInfo = {
-    feats(actor) { return new Set((actor?.items ?? []).filter((i) => i.type === "feat").map((i) => normName(i.name))); },
+    feats(actor) { return new Set((actor?.items ?? []).filter((i) => i.type === "feat").flatMap(namesOf)); },
     /** Caster levels of the spellbooks in use: [{ key, name, cl, spontaneous }]. */
     casterLevels(actor) {
       const books = sys(actor).attributes?.spells?.spellbooks ?? {};
@@ -105,9 +114,10 @@ const AXECLEFT_CRAFTING_HOST = (() => {
         if (i.type !== "spell") continue;
         const s = i.system ?? {}, book = books[s.spellbook] ?? {};
         const e = { name: i.name, book: book.name || s.spellbook, level: s.level, prepared: Number(s.preparation?.preparedAmount ?? 0) || 0, spontaneous: !!book.spontaneous || !!s.atWill };
-        const k = normName(i.name);
-        if (!out.has(k)) out.set(k, []);
-        out.get(k).push(e);
+        for (const k of namesOf(i)) {
+          if (!out.has(k)) out.set(k, []);
+          out.get(k).push(e);
+        }
       }
       return out;
     },
@@ -121,7 +131,7 @@ const AXECLEFT_CRAFTING_HOST = (() => {
     },
     classes(actor) {
       const m = new Map();
-      for (const i of actor?.items ?? []) if (i.type === "class") m.set(normName(i.name), Number(i.system?.levels ?? 0) || 0);
+      for (const i of actor?.items ?? []) if (i.type === "class") for (const k of namesOf(i)) m.set(k, Number(i.system?.levels ?? 0) || 0);
       return m;
     },
     level(actor) { return Number(sys(actor).details?.level?.available ?? sys(actor).details?.level?.value ?? 0) || 0; },
@@ -147,8 +157,10 @@ const AXECLEFT_CRAFTING_HOST = (() => {
     craft(actor, name) {
       const crf = sys(actor).skills?.crf ?? {};
       for (const group of ["subSkills", "namedSubSkills"]) {
+        const words = [name, ...(CRAFT_WORDS[normName(name)] ?? [])].map(normName).filter(Boolean);
         for (const [id, s] of Object.entries(crf[group] ?? {})) {
-          if (normName(s?.name).includes(normName(name)) || normName(name).includes(normName(s?.name))) {
+          const sn = normName(s?.name);
+          if (sn && words.some((w) => sn.includes(w) || w.includes(sn))) {
             return { rollId: `crf.${group}.${id}`, label: `Craft (${s.name})`, mod: Number(s.mod ?? 0) || 0, trained: (Number(s.rank ?? 0) || 0) > 0 };
           }
         }

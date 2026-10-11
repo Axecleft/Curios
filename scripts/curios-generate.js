@@ -61,11 +61,12 @@ export class CuriosGenerator {
       const pack = game.packs.get(id);
       if (!pack || pack.documentName !== "Item") continue;
       let index;
-      try { index = await pack.getIndex({ fields: ["system.price", "type"] }); } catch (e) { continue; }
+      try { index = await D.enIndex(pack, { fields: ["system.price", "type"] }); } catch (e) { continue; }
       for (const e of index) {
         if (e.type === "Folder") continue;
-        const k = normName(e.name);
-        (map.get(k) ?? map.set(k, []).get(k)).push({ pack: id, id: e._id, name: e.name, price: Number(e.system?.price) || 0 });
+        // By English name (Babele worlds) and by the shown name (an item typed in French on the Curios tab)
+        const hit = { pack: id, id: e._id, name: e.name, display: e.display ?? e.name, price: Number(e.system?.price) || 0, type: e.type };
+        for (const k of new Set([normName(e.name), normName(hit.display)])) (map.get(k) ?? map.set(k, []).get(k)).push(hit);
       }
     }
     this.names = map;
@@ -92,8 +93,12 @@ export class CuriosGenerator {
     delete data._id; delete data.folder; delete data.sort;
     T()?.applyPriceCorrection?.(hit?.pack ?? "", data);
     // A table row for one version of a general item (an Ioun stone, a figurine…): its own name and price
+    // Its English identity, for Babele worlds (Axecleft's Tools 8)
+    if (hit && !foundry.utils.getProperty(data, "flags.babele.originalName")) foundry.utils.setProperty(data, "flags.world.axecleftEn", hit.name);
     if (row.variant) {
-      data.name = D.titleCase(row.name);
+      foundry.utils.setProperty(data, "flags.world.axecleftEn", D.titleCase(row.name));
+      // Variant names come from the SRD tables (English); in a translated world keep the compendium's name with the variant's SRD name after it
+      data.name = data.name !== hit?.name && hit ? `${data.name} (${D.titleCase(row.name)})` : D.titleCase(row.name);
       data.system.identifiedName = data.name;
       data.system.price = row.price;
       if (normName(hit?.name) !== normName(data.name)) note = note || `${hit?.name ?? "item"} as ${data.name}`;

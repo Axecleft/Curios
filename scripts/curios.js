@@ -1,5 +1,5 @@
 /**
- * Axecleft's Curios — 1.14.8.
+ * Axecleft's Curios — 1.14.10.
  *
  * Potions, scrolls, wands, rings, rods, staffs and wondrous items for the D35E system, and the psionic
  * equivalents (psionic tattoos, power stones, dorjes, universal items, cognizance crystals and psicrowns). Supplies the shared Treasure and
@@ -19,6 +19,7 @@ import { CuriosSpells } from "./curios-consumables.js";
 import { CuriosGenerator, CATS } from "./curios-generate.js";
 import { registerLinkHooks, makeMaster, makeBook, spawnChildren } from "./curios-links.js";
 import { registerPsionicHooks, makeCrystal, makeCrown, crownRow, customCrown } from "./curios-psionic.js";
+import { registerPearlHooks, PEARL_SETTINGS } from "./curios-pearls.js";
 import { registerWorkshop } from "./curios-workshop.js";
 import { registerCuriosCrafting } from "./curios-craft.js";
 import { CuriosIntelligence } from "./curios-intelligent.js";
@@ -30,6 +31,7 @@ const SETTINGS = {
   potionLevel: { name: "Highest potion level (GM)", hint: "SRD: potions and psionic tattoos hold 3rd-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 3rd.", type: Number, default: 3, range: { min: 3, max: 9, step: 1 } },
   wandLevel: { name: "Highest wand level (GM)", hint: "SRD: wands and dorjes hold 4th-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 4th.", type: Number, default: 4, range: { min: 4, max: 9, step: 1 } },
   psionicShare: { name: "Psionic share of potions, scrolls, wands, staffs and wondrous items (%)", hint: "House rule, while Psionics is on (Treasure Generator → Generation settings): this share of random potion, scroll and wand rolls become psionic tattoos, power stones and dorjes; of staff rolls, SRD psicrowns; of wondrous item rolls, cognizance crystals and psionic universal items. 0 = none.", type: Number, default: 10, range: { min: 0, max: 100, step: 5 } },
+  ...PEARL_SETTINGS,
   psicrownSetup: { name: "Set up psicrowns", hint: "A psicrown added to a character from a compendium (D35E's Dominator, Evader…) gets its power points and its powers as separate items that spend the crown's points.", type: Boolean, default: true },
   preferModules: { name: "Prefer module compendiums", hint: "When a spell, power or item is in both D35E's compendiums and a module's (such as Axecleft's Shared Data), use the module's copy.", type: Boolean, default: true },
   adoptLinks: { name: "Take over hand-made linked items", hint: "A spellbook or scroll you linked by hand on D35E's Links tab: when it is added to a character, Curios keeps a copy of its contents so used scrolls stay used when it changes hands.", type: Boolean, default: true },
@@ -104,6 +106,7 @@ globalThis.AxecleftMerchants?.registerMerchantType?.({
 
 registerLinkHooks(api);
 registerPsionicHooks(api); // cognizance crystals and psicrowns
+registerPearlHooks(api); // pearls of power
 registerCuriosCrafting(api); // the shared Crafting window: scrolls, potions, wands and the psionic ones
 
 Hooks.once("init", () => {
