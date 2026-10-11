@@ -1,9 +1,7 @@
 # Axecleft's Curios — changelog
+## 1.14.9.1
 
-## 1.14.10
-
-- **Pearls of power work** (SRD): D35E's Pearl of Power (1st) to (9th) and Pearl of Power, Two Spells get daily uses on a character (restored when it rests). Using one lists the prepared spells of its level cast today and prepares the chosen one again; the two-spell pearl recalls two spells a day of different levels, 6th or lower. Found by English name, so translated pearls work too.
-- New setting, **Pearls of power for spontaneous casters** (house rule, off): sorcerers, bards and other spontaneous casters regain a used spell slot of the pearl's level.
+- Added module update support.
 
 ## 1.14.9
 
