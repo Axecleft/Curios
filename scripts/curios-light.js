@@ -69,11 +69,12 @@ export function applyLight(data, l) {
     emitLight: true, color: l.color, radius: l.bright, dimRadius: l.dim, alpha: l.alpha, type: l.type,
     animationSpeed: l.speed, animationIntensity: l.intensity, lightAngle: 360,
   };
-  const note = `<p><em>It sheds light (${l.bright} ft. bright, ${l.dim} ft. dim).</em></p>`;
+  const tr = globalThis.AxecleftTools?.t ?? ((s, d) => (d ? String(s).replace(/\{(\w+)\}/g, (m, k) => d[k] ?? m) : s));
+  const note = `<p><em>${tr(/*t*/"It sheds light ({bright} ft. bright, {dim} ft. dim).", { bright: l.bright, dim: l.dim })}</em></p>`;
   data.system.description ??= {};
   data.system.description.value = `${data.system.description.value ?? ""}${note}`;
   if (data.system.description.unidentified !== undefined || data.system.identified === false) {
-    data.system.description.unidentified = `${data.system.description.unidentified ?? ""}<p><em>It sheds light.</em></p>`;
+    data.system.description.unidentified = `${data.system.description.unidentified ?? ""}<p><em>${tr(/*t*/"It sheds light.")}</em></p>`;
   }
   return true;
 }

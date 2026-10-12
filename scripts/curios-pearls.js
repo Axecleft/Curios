@@ -18,7 +18,8 @@ import * as D from "./curios-d35e.js";
 const { MOD, normName } = D;
 const SKIP_HOOK = "curiosInternal";
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const th = (n) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
+const th = (n) => D.ord(n);
+const t = D.t;
 
 /** The pearl's rules from its English name, or null: { levels: [n] } or { two: true, max: 6 }. */
 export function pearlFacts(item) {
@@ -69,27 +70,28 @@ async function usePearl(api, actor, pearl) {
   if (!facts) return;
   if (!ready(pearl)) await pearl.update(pearlUses({}, facts), { [SKIP_HOOK]: true }); // a pearl added before Curios 1.14.10
   const left = Number(pearl.system?.uses?.value) || 0, max = Number(pearl.system?.uses?.max) || 1;
-  if (left <= 0) return ui.notifications.warn(`${pearl.name} has been used ${max > 1 ? "twice" : ""} today; it works again after a rest.`.replace("  ", " "));
+  if (left <= 0) return ui.notifications.warn(t(max > 1 ? "{item} has been used twice today; it works again after a rest." : "{item} has been used today; it works again after a rest.", { item: pearl.name }));
   // A fresh day (all uses back): forget which levels the two-spell pearl recalled
   if (facts.two && left >= max && (pearl.flags?.[MOD]?.pearl?.today ?? []).length) await pearl.update({ [`flags.${MOD}.pearl.today`]: [] }, { [SKIP_HOOK]: true });
   const list = choices(actor, pearl, facts, { spontaneous: api.setting("pearlSpontaneous") === true });
-  const what = facts.two ? `two spells a day, each of a different level (1st–6th)${(pearl.flags?.[MOD]?.pearl?.today ?? []).length ? `; already recalled today: ${pearl.flags[MOD].pearl.today.map(th).join(", ")}` : ""}` : `one ${th(facts.level)}-level spell a day`;
+  const what = facts.two ? t("two spells a day, each of a different level (1st–6th)") + ((pearl.flags?.[MOD]?.pearl?.today ?? []).length ? t("; already recalled today: {levels}", { levels: pearl.flags[MOD].pearl.today.map(th).join(", ") }) : "") : t("one {level}-level spell a day", { level: th(facts.level) });
   if (!list.length) {
-    return ui.notifications.info(`${pearl.name}: no ${facts.two ? "" : `${th(facts.level)}-level `}prepared spell has been cast today${api.setting("pearlSpontaneous") ? " and no spell slot of that level is used" : ""}. (It recalls ${what}.)`);
+    const none = facts.two ? t("{item}: no prepared spell has been cast today", { item: pearl.name }) : t("{item}: no {level}-level prepared spell has been cast today", { item: pearl.name, level: th(facts.level) });
+    return ui.notifications.info(`${none}${api.setting("pearlSpontaneous") ? t(" and no spell slot of that level is used") : ""}. ${t("(It recalls {what}.)", { what })}`);
   }
   const DV = foundry.applications?.api?.DialogV2;
-  const label = (c) => (c.kind === "spell" ? `${c.item.name} (${th(c.level)}, ${c.book})` : `A ${th(c.level)}-level spell slot (${c.book}, spontaneous: house rule)`);
-  const content = `<p>${esc(pearl.name)} recalls ${esc(what)}: a spell prepared and cast today is prepared again.</p>
-    <div class="form-group"><label>Recall</label><select name="pick">${list.map((c, i) => `<option value="${i}">${esc(label(c))}</option>`).join("")}</select></div>`;
+  const label = (c) => (c.kind === "spell" ? `${c.item.name} (${th(c.level)}, ${c.book})` : t("A {level}-level spell slot ({book}, spontaneous: house rule)", { level: th(c.level), book: c.book }));
+  const content = `<p>${esc(t("{item} recalls {what}: a spell prepared and cast today is prepared again.", { item: pearl.name, what }))}</p>
+    <div class="form-group"><label>${esc(t("Recall"))}</label><select name="pick">${list.map((c, i) => `<option value="${i}">${esc(label(c))}</option>`).join("")}</select></div>`;
   let idx = null;
   if (DV) {
     const res = await DV.wait({ window: { title: pearl.name }, content, rejectClose: false,
-      buttons: [{ action: "recall", label: "Recall", icon: "fas fa-rotate-left", default: true, callback: (ev, btn) => btn.form.elements.pick?.value }, { action: "close", label: "Cancel", icon: "fas fa-times" }] });
+      buttons: [{ action: "recall", label: t("Recall"), icon: "fas fa-rotate-left", default: true, callback: (ev, btn) => btn.form.elements.pick?.value }, { action: "close", label: t("Cancel"), icon: "fas fa-times" }] });
     if (res === null || res === undefined || res === "close") return;
     idx = Number(res);
   } else {
     idx = await new Promise((resolve) => new Dialog({ title: pearl.name, content: `<form>${content}</form>`, default: "recall",
-      buttons: { recall: { label: "Recall", callback: (html) => resolve(Number(html.find('[name="pick"]').val())) }, close: { label: "Cancel", callback: () => resolve(null) } }, close: () => resolve(null) }).render(true));
+      buttons: { recall: { label: t("Recall"), callback: (html) => resolve(Number(html.find('[name="pick"]').val())) }, close: { label: t("Cancel"), callback: () => resolve(null) } }, close: () => resolve(null) }).render(true));
     if (idx === null) return;
   }
   const c = list[idx];
@@ -106,7 +108,7 @@ async function usePearl(api, actor, pearl) {
   if (facts.two) upd[`flags.${MOD}.pearl.today`] = [...(pearl.flags?.[MOD]?.pearl?.today ?? []), c.level];
   await pearl.update(upd, { [SKIP_HOOK]: true });
   try {
-    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p><strong>${esc(actor.name)}</strong> uses ${esc(pearl.name)}: ${c.kind === "spell" ? `<em>${esc(c.item.name)}</em> is prepared again` : `regains a ${th(c.level)}-level spell slot`}.</p>` });
+    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: `<p>${c.kind === "spell" ? t("<strong>{actor}</strong> uses {item}: <em>{spell}</em> is prepared again.", { actor: esc(actor.name), item: esc(pearl.name), spell: esc(c.item.name) }) : t("<strong>{actor}</strong> uses {item}: regains a {level}-level spell slot.", { actor: esc(actor.name), item: esc(pearl.name), level: th(c.level) })}</p>` });
   } catch (e) { /* no chat */ }
 }
 
@@ -127,5 +129,5 @@ export function registerPearlHooks(api) {
 }
 
 export const PEARL_SETTINGS = {
-  pearlSpontaneous: { name: "Pearls of power for spontaneous casters (house rule)", hint: "SRD: a pearl of power recalls a spell a caster prepared. On: sorcerers, bards and other spontaneous casters can use one to regain a used spell slot of the pearl's level.", type: Boolean, default: false },
+  pearlSpontaneous: { name: /*t*/"Pearls of power for spontaneous casters (house rule)", hint: /*t*/"SRD: a pearl of power recalls a spell a caster prepared. On: sorcerers, bards and other spontaneous casters can use one to regain a used spell slot of the pearl's level.", type: Boolean, default: false },
 };

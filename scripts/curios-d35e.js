@@ -7,6 +7,21 @@
 
 export const MOD = "axeclefts-curios";
 
+/** Text in the world's language (Axecleft's Tools 8.2 language files: lang/<code>.json), else the English. {placeholders} are filled from data. */
+export const t = (s, d) => globalThis.AxecleftTools?.t?.(s, d) ?? (d ? String(s).replace(/\{(\w+)\}/g, (m, k) => d[k] ?? m) : String(s));
+/** A number in the world's language format. */
+export const num = (n) => { const l = globalThis.AxecleftTools?.i18n?.lang; return Number(n).toLocaleString(l && l !== "en" ? l : "en-US"); };
+/** "3rd" in the world's language. */
+/** A name or phrase from a pattern, in the world's language (Axecleft's Tools 8.3 grammar); { lang: "en" } for the English one. */
+/** A word for N(): its English, with the text to show when the word file has none (Axecleft's Tools 8.4 word files: gender, forms). */
+export const W = (en, text = null) => globalThis.AxecleftTools?.word?.(en, { text }) ?? (text ?? en);
+export const N = (p, s = {}, o = {}) => globalThis.AxecleftTools?.compose?.(p, s, o) ?? String(p).replace(/\[([^\]]*)\]/g, (m, g) => (/\{(\w+)[^}]*\}/.test(g) && [...g.matchAll(/\{(\w+)[^}]*\}/g)].every(([, k]) => s[k] !== undefined && s[k] !== "" && !(Array.isArray(s[k]) && !s[k].length)) ? g : "")).replace(/\{(\w+)[^}]*\}/g, (m, k) => [s[k] ?? ""].flat().map((x) => x?.text ?? x).join(" ")).replace(/\s{2,}/g, " ").trim();
+/** English ordinal (1st, 2nd…), for English names. */
+export const ordEn = (n) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
+export const ord = (n) => t(n === 1 ? "{n}st" : n === 2 ? "{n}nd" : n === 3 ? "{n}rd" : "{n}th", { n });
+/** "1,234 gp" in the world's language. */
+export const gp = (n) => t("{n} gp", { n: num(Math.round((Number(n) || 0) * 100) / 100) });
+
 export const ARCANE = ["Wizard", "Sorcerer", "Bard", "Assassin"];
 export const DIVINE = ["Cleric", "Druid", "Paladin", "Ranger", "Blackguard"];
 export const PSIONIC = ["Psion", "Wilder", "Psychic Warrior"];
@@ -14,12 +29,12 @@ export const FULL = ["Wizard", "Sorcerer", "Cleric", "Druid"];
 
 /** D35E consumable types and how Curios names them. */
 export const KINDS = {
-  potion: { label: "Potion", unid: "Potion", mult: 50, maxLevel: 3, psionic: false, pair: "tattoo" },
-  scroll: { label: "Scroll", unid: "Scroll", mult: 25, maxLevel: 9, psionic: false, pair: "powerstone" },
-  wand: { label: "Wand", unid: "Wand", mult: 750, maxLevel: 4, psionic: false, pair: "dorje", charges: 50 },
-  tattoo: { label: "Psionic tattoo", unid: "Tattoo", mult: 50, maxLevel: 3, psionic: true, pair: "potion" },
-  powerstone: { label: "Power stone", unid: "Crystal", mult: 25, maxLevel: 9, psionic: true, pair: "scroll" },
-  dorje: { label: "Dorje", unid: "Crystal wand", mult: 750, maxLevel: 4, psionic: true, pair: "wand", charges: 50 },
+  potion: { label: /*t*/"Potion", unid: "Potion", mult: 50, maxLevel: 3, psionic: false, pair: "tattoo" },
+  scroll: { label: /*t*/"Scroll", unid: "Scroll", mult: 25, maxLevel: 9, psionic: false, pair: "powerstone" },
+  wand: { label: /*t*/"Wand", unid: "Wand", mult: 750, maxLevel: 4, psionic: false, pair: "dorje", charges: 50 },
+  tattoo: { label: /*t*/"Psionic tattoo", unid: "Tattoo", mult: 50, maxLevel: 3, psionic: true, pair: "potion" },
+  powerstone: { label: /*t*/"Power stone", unid: "Crystal", mult: 25, maxLevel: 9, psionic: true, pair: "scroll" },
+  dorje: { label: /*t*/"Dorje", unid: "Crystal wand", mult: 750, maxLevel: 4, psionic: true, pair: "wand", charges: 50 },
 };
 
 /** "figurine of wondrous power, onyx dog" -> "Figurine of Wondrous Power, Onyx Dog". */

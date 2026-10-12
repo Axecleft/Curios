@@ -21,8 +21,8 @@ import * as D from "./curios-d35e.js";
 
 const { MOD, normName } = D;
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const gp = (n) => `${Number(Math.round(n * 100) / 100).toLocaleString("en-US")} gp`;
-const ordinal = (n) => (n === 0 ? "0-level" : `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}-level`);
+const { gp, t } = D;
+const ordinal = (n) => (n === 0 ? t("0-level") : t("{level}-level", { level: D.ord(n) }));
 const IMG = {
   scroll: "systems/D35E/icons/items/magic/generated/scroll.png",
   powerstone: "systems/D35E/icons/items/magic/generated/crystal.png",
@@ -37,29 +37,37 @@ export const pagesFor = (level) => Math.max(1, Number(level) || 0);
 
 /** The description shown on a master: its contents and which are used. */
 export function masterDescription(kind, contents, extra = "") {
-  const what = kind === "book" ? "spells" : kind === "powerstone" ? "powers" : "spells";
   const li = contents.map((c) => {
     const f = c.data?.flags?.[MOD] ?? {};
     const lvl = Number.isFinite(f.level) ? `${ordinal(f.level)}` : "";
-    const cl = f.cl ? `, ${kind === "powerstone" ? "ML" : "CL"} ${f.cl}` : "";
-    return `<li>${c.used ? "<s>" : ""}${esc(f.spellShown ?? f.spell ?? c.name)}${lvl || cl ? ` <small>(${lvl}${cl})</small>` : ""}${c.used ? "</s> <small>(used)</small>" : ""}</li>`;
+    const cl = f.cl ? `, ${t(kind === "powerstone" ? "ML {n}" : "CL {n}", { n: f.cl })}` : "";
+    return `<li>${c.used ? "<s>" : ""}${esc(f.spellShown ?? f.spell ?? c.name)}${lvl || cl ? ` <small>(${esc(lvl)}${esc(cl)})</small>` : ""}${c.used ? `</s> <small>(${esc(t("used"))})</small>` : ""}</li>`;
   }).join("");
-  const head = kind === "book" ? "<p><strong>Spellbook.</strong> Its spells are added to the owner's spells while the book is carried.</p>"
-    : `<p><strong>${kind === "powerstone" ? "Power stone" : "Scroll"} with ${contents.length} ${what}.</strong> While carried, each one is a separate ${kind === "powerstone" ? "power stone" : "scroll"} in the inventory; once used it is gone.</p>`;
+  const head = kind === "book" ? `<p>${t("<strong>Spellbook.</strong> Its spells are added to the owner's spells while the book is carried.")}</p>`
+    : `<p>${kind === "powerstone" ? t("<strong>Power stone with {n} powers.</strong> While carried, each one is a separate power stone in the inventory; once used it is gone.", { n: contents.length }) : t("<strong>Scroll with {n} spells.</strong> While carried, each one is a separate scroll in the inventory; once used it is gone.", { n: contents.length })}</p>`;
   return `${head}<ol>${li}</ol>${extra}`;
 }
+
+/** A master scroll's or power stone's name (a pattern translated in lang/<code>.json). */
+const MASTER_NAME = /*t*/"{kind} of {spells:and}";
+const MASTER_WORDS = [/*t*/"Power Stone", /*t*/"Arcane Scroll", /*t*/"Divine Scroll"]; // eslint-disable-line no-unused-vars
 
 /**
  * Make a master scroll or power stone from consumable data ([{ data, name, price }] from CuriosSpells.make()).
  */
-export function makeMaster(kind, made, { unidentified = false, name = null } = {}) {
+export function makeMaster(kind, made, { unidentified = false, name = null, label = null } = {}) {
   const contents = made.map((m, i) => ({ key: `c${i + 1}`, name: m.name, data: m.data, used: false }));
   const spells = made.map((m) => m.data.flags?.[MOD]?.spellShown ?? m.data.flags?.[MOD]?.spell ?? m.name);
-  const label = kind === "powerstone" ? "Power Stone" : "Scroll";
-  const title = name ?? `${label} of ${spells.length > 3 ? `${spells.slice(0, 3).join(", ")} and ${spells.length - 3} more` : spells.join(", ").replace(/, ([^,]*)$/, " and $1")}`;
+  const spellsEn = made.map((m) => m.data.flags?.[MOD]?.spell ?? m.name);
+  const kindEn = label ?? (kind === "powerstone" ? "Power Stone" : "Scroll");
+  // "Scroll of A, B, C and 2 more" (Axecleft's Tools 8.3 grammar: the pattern and the list words in the world's language)
+  const list = (names, en) => (names.length > 3 ? [...names.slice(0, 3), en ? `${names.length - 3} more` : D.t("{n} more", { n: names.length - 3 })] : names);
+  const title = name ?? D.N(MASTER_NAME, { kind: D.W(kindEn, D.t(kindEn)), spells: list(spells, false) });
+  const titleEn = name ?? D.N(MASTER_NAME, { kind: kindEn, spells: list(spellsEn, true) }, { lang: "en" });
   const price = made.reduce((a, m) => a + (Number(m.price) || 0), 0);
   const data = D.masterBase({ name: title, img: IMG[kind], price, description: masterDescription(kind, contents) });
   foundry.utils.setProperty(data, `flags.${MOD}`, { master: kind, contents });
+  if (!name) foundry.utils.setProperty(data, "flags.world.axecleftEn", titleEn); // its English identity (Axecleft's Tools 8)
   if (unidentified) D.setUnidentified(data, kind === "powerstone" ? "Crystal" : "Scroll");
   return data;
 }
@@ -71,15 +79,16 @@ export function makeMaster(kind, made, { unidentified = false, name = null } = {
 export function makeBook(spells, { cls = "Wizard", name = null, capacity = 100 } = {}) {
   const contents = spells.map((s, i) => {
     const data = foundry.utils.deepClone(s.data);
-    foundry.utils.setProperty(data, `flags.${MOD}.spell`, s.name);
+    foundry.utils.setProperty(data, `flags.${MOD}.spell`, s.name); // English (Babele worlds)
+    foundry.utils.setProperty(data, `flags.${MOD}.spellShown`, s.shown ?? s.name); // as this world names it
     foundry.utils.setProperty(data, `flags.${MOD}.level`, s.level);
-    return { key: `s${i + 1}`, name: s.name, data, used: false };
+    return { key: `s${i + 1}`, name: s.shown ?? s.name, data, used: false };
   });
   const pages = spells.reduce((a, s) => a + pagesFor(s.level), 0);
-  if (pages > capacity) throw new Error(`These spells need ${pages} pages; a spellbook has ${capacity}.`);
+  if (pages > capacity) throw new Error(t("These spells need {pages} pages; a spellbook has {capacity}.", { pages, capacity }));
   const price = 15 + pages * 100;
-  const data = D.masterBase({ name: name ?? `Spellbook (${cls}, ${spells.length} spell${spells.length === 1 ? "" : "s"})`, img: IMG.book, price, weight: 3,
-    description: masterDescription("book", contents, `<p><small>${pages} of ${capacity} pages. Value: 15 gp blank + 100 gp per page (${gp(price)}).</small></p>`) });
+  const data = D.masterBase({ name: name ?? t(spells.length === 1 ? "Spellbook ({class}, {n} spell)" : "Spellbook ({class}, {n} spells)", { class: cls, n: spells.length }), img: IMG.book, price, weight: 3,
+    description: masterDescription("book", contents, `<p><small>${t("{pages} of {capacity} pages. Value: 15 gp blank + 100 gp per page ({gp}).", { pages, capacity, gp: gp(price) })}</small></p>`) });
   foundry.utils.setProperty(data, `flags.${MOD}`, { master: "book", contents, book: { cls, pages, capacity } });
   return data;
 }
@@ -96,7 +105,7 @@ export async function spawnChildren(master) {
   const linkId = foundry.utils.randomID(16);
   await master.update({ "system.linkId": linkId }, { [SKIP_HOOK]: true, stopUpdates: true });
   const book = f.master === "book" ? D.spellbookFor(actor, f.book?.cls) : null;
-  if (f.master === "book" && !book) ui.notifications.warn(`${actor.name} has no ${f.book?.cls ?? "matching"} spellbook, so ${master.name}'s spells go in the primary spellbook.`);
+  if (f.master === "book" && !book) ui.notifications.warn(t("{actor} has no {class} spellbook, so {item}'s spells go in the primary spellbook.", { actor: actor.name, class: f.book?.cls ?? t("matching"), item: master.name }));
   const create = (f.contents ?? []).filter((c) => !c.used && c.data).map((c) => {
     const d = foundry.utils.deepClone(c.data);
     delete d._id;
@@ -159,9 +168,9 @@ async function markUsed(actor, child) {
   const entry = f.contents?.find((x) => x.key === c.key);
   if (!entry || entry.used) return;
   entry.used = true;
-  const extra = f.master === "book" ? `<p><small>${f.book?.pages ?? 0} of ${f.book?.capacity ?? 100} pages.</small></p>` : "";
+  const extra = f.master === "book" ? `<p><small>${t("{pages} of {capacity} pages.", { pages: f.book?.pages ?? 0, capacity: f.book?.capacity ?? 100 })}</small></p>` : "";
   await master.update({ [`flags.${MOD}.contents`]: f.contents, "system.description.value": masterDescription(f.master, f.contents, extra) }, { [SKIP_HOOK]: true, stopUpdates: true });
-  if (f.master !== "book" && f.contents.every((x) => x.used)) ui.notifications.info(`${master.name}: every ${f.master === "powerstone" ? "power" : "spell"} has been used.`);
+  if (f.master !== "book" && f.contents.every((x) => x.used)) ui.notifications.info(t(f.master === "powerstone" ? "{item}: every power has been used." : "{item}: every spell has been used.", { item: master.name }));
 }
 
 /** Is this user the one who should act for a change made by userId on this actor? */
@@ -209,8 +218,8 @@ export function registerLinkHooks(api) {
     if (normName(D.enName(item)) === "read magic" || normName(item.name) === "read magic") return; // SRD: a wizard can prepare read magic without a spellbook
     const fromBook = childOf(item)?.kind === "book" || item.actor.items.some((i) => childOf(i)?.kind === "book" && normName(i.name) === normName(item.name));
     if (fromBook) return;
-    const msg = `${item.name} isn't in a spellbook ${item.actor.name} carries, so it can't be prepared (Curios: spellbook rule).`;
-    if (game.user.isGM) { ui.notifications.warn(`${msg} Allowed for the GM.`); return; }
+    const msg = t("{spell} isn't in a spellbook {actor} carries, so it can't be prepared (Curios: spellbook rule).", { spell: item.name, actor: item.actor.name });
+    if (game.user.isGM) { ui.notifications.warn(`${msg} ${t("Allowed for the GM.")}`); return; }
     ui.notifications.warn(msg);
     return false;
   });

@@ -1,4 +1,50 @@
 # Axecleft's Curios — changelog
+## 1.14.9.10
+
+- French draft: lang/fr.json (buttons, menus, hints, messages and name patterns) and lang/fr.words.json (the words in item and shop names, with their genders) are filled in, and languages.json now lists fr, so worlds set to French show this module in French. A first draft for Gigalad to correct; English worlds are unchanged.
+
+## 1.14.9.9
+
+- Axecleft's Tools 8.4: word files. Each module's lang folder has words.template.json, every English word that goes into names (abilities, materials, base items, gems, art objects, item kinds, shop-name words); a translator copies it to <code>.words.json and writes each word with a short notation: "Épée longue (f)" (text and gender), "(f)" (gender only, keeping Babele's name), "acéré/acérée/acérés/acérées" (forms that agree with the noun), "de feu (of)" (a word that moves after the noun). Patterns can also hold agreeing words: {~sculpté/sculptée}. lang/README.md explains it. This module's template has 147 words.
+- Ships the Merchant Generator 7.7: shop names ("The Gilded Anvil", "Garrick's Smithy") go through the grammar and the word files, so they can read "L'Enclume dorée" or "Forge de Garrick".
+- Item kinds (Scroll, Potion, Oil…) and metamagic words come from the word file when it has them; the item kind is the name's head word, so its gender drives agreement.
+- Fixed: in a translated world, potions of spells cast on objects (bless weapon, magic vestment) are oils again (the spell's target text is translated by Babele).
+- English names are unchanged.
+
+## 1.14.9.8
+
+- Axecleft's Tools 8.3: names built from parts ("+1 Flaming Longsword of Speed", "Scroll of Fireball", "Gold Ring set with Ruby") follow the language's grammar: the name patterns are translated in lang/<code>.json like other texts (word order), and a new grammar file per language (lang/<code>.grammar.json) sets the word for "and", articles, agreement ("acérée" with "Épée longue"), elision (de → d'), contractions (de le → du) and capital letters. Drafts for French, Spanish and Portuguese are included (used once the language is listed in languages.json); lang/README.md explains patterns and grammar files.
+- Scrolls, potions, oils, wands and other spell items, master scrolls and power stones ("Arcane Scroll of A, B and C"), cognizance crystals and psicrowns are named through the grammar, and all keep their English name (for matching). The metamagic words (Empowered, Heightened (5th)…) are translatable.
+- English names are unchanged.
+
+## 1.14.9.7
+
+- Fixed: in a translated world, making an item intelligent could add its intelligence section to the description twice. The message for a missing Intelligent Item Tables compendium is translatable.
+
+## 1.14.9.6
+
+- Curios' own windows are translatable: the Curios tab of the Treasure Generator (Workshop), the four crafting tabs (scrolls, potions and wands; rings, rods, staffs and wondrous items; crystals and psicrowns; alchemical items), item descriptions and summaries, intelligent items, psionic items, pearls of power and messages. Prices use the world's number format. lang/template.json now lists 1,196 texts.
+- Alchemical items in the crafting list show the name the world gives them.
+
+## 1.14.9.5
+
+- Axecleft's Tools 8.2: a language loader for Axecleft's modules. Each module has a lang folder (template.json to translate, one file per language, e.g. fr.json); texts not translated yet stay in English, Brazilian and European Portuguese fall back on each other, and setting names are translated too.
+- Ships the Treasure Generator 9.94, Merchant Generator 7.6 and Crafting 1.9: their windows, chat cards and messages are translatable. Curios' own windows follow next.
+
+## 1.14.9.4
+
+- Spellbooks list their spells as the world names them (French spell names in a French world); the spells' English names are kept for matching.
+- Ships Axecleft's Crafting 1.8: spell requirements in the world's language.
+
+## 1.14.9.3
+
+- Worlds in other languages: spell sources are found when Babele translates the compendium labels ("Sorts"), so potions, scrolls, wands and spellbooks are made again; the crafting lists use the English labels too. Ships the Treasure Generator 9.93.
+
+## 1.14.9.2
+
+- Axecleft's Tools 8.1: works with Babele 2.9 (Foundry 13/14), which keeps its translations in a new place; with it, translated compendium items are found by their English names again.
+- Pearls of power (D35E's Pearl of Power, 1st to 9th, and Two Spells) work: daily uses, and using one prepares again a spell of its level cast today. Setting: Pearls of power for spontaneous casters (house rule, off). Added in 1.14.9.1.
+
 ## 1.14.9.1
 
 - Added module update support.

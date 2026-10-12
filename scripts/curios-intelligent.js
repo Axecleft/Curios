@@ -17,24 +17,29 @@ const normName = (s) => String(s ?? "").toLowerCase().replace(/[’']/g, "'").re
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const d100 = () => 1 + Math.floor(Math.random() * 100);
 const pick = (l) => l[Math.floor(Math.random() * l.length)];
-const gp = (n) => `${(Math.round(n * 100) / 100).toLocaleString("en-US")} gp`;
+// Text in the world's language (Axecleft's Tools 8.2 language files), else the English
+const t = (s, d) => globalThis.AxecleftTools?.t?.(s, d) ?? (d ? String(s).replace(/\{(\w+)\}/g, (m, k) => d[k] ?? m) : String(s));
+const num = (n) => { const l = globalThis.AxecleftTools?.i18n?.lang; return Number(n).toLocaleString(l && l !== "en" ? l : "en-US"); };
+const gp = (n) => t("{n} gp", { n: num(Math.round(n * 100) / 100) });
+/** An alignment's name in the world's language. */
+const alignName = (a) => t(ALIGN_NAMES[a] ?? a);
 const mod = (s) => Math.floor((Number(s) - 10) / 2);
 
-export const ALIGN_NAMES = { lg: "lawful good", ng: "neutral good", cg: "chaotic good", ln: "lawful neutral", nn: "neutral", cn: "chaotic neutral", le: "lawful evil", ne: "neutral evil", ce: "chaotic evil" };
+export const ALIGN_NAMES = { lg: /*t*/"lawful good", ng: /*t*/"neutral good", cg: /*t*/"chaotic good", ln: /*t*/"lawful neutral", nn: /*t*/"neutral", cn: /*t*/"chaotic neutral", le: /*t*/"lawful evil", ne: /*t*/"neutral evil", ce: /*t*/"chaotic evil" };
 const OPPOSED = { lg: "ce", ng: "ne", cg: "le", ln: "cn", cn: "ln", le: "cg", ne: "ng", ce: "lg" };
 /** Abilities that fix one axis of the item's alignment. */
 const ABILITY_AXIS = { holy: ["ge", "g"], unholy: ["ge", "e"], axiomatic: ["lc", "l"], anarchic: ["lc", "c"] };
 const PURPOSE_TEXT = {
-  oppAlign: (ctx) => ctx.align === "nn" ? "Defeat/slay creatures of extreme alignments (lawful good, chaotic good, lawful evil, chaotic evil)" : `Defeat/slay ${ALIGN_NAMES[OPPOSED[ctx.align]]} creatures (the opposed alignment)`,
-  arcane: () => "Defeat/slay arcane spellcasters (including spellcasting monsters and those that use spell-like abilities)",
-  divine: () => "Defeat/slay divine spellcasters (including divine entities and servitors)",
-  noncaster: () => "Defeat/slay nonspellcasters",
-  creatureType: (ctx) => `Defeat/slay ${ctx.foe("type")}`,
-  race: (ctx) => `Defeat/slay ${ctx.foe("race")}`,
-  defendRace: (ctx) => `Defend ${ctx.foe("race")}`,
-  slayDeityServants: () => "Defeat/slay the servants of a specific deity (the GM chooses the deity)",
-  defendDeity: () => "Defend the servants and interests of a specific deity (the GM chooses the deity)",
-  slayAll: () => "Defeat/slay all (other than the item and the wielder)",
+  oppAlign: (ctx) => ctx.align === "nn" ? t("Defeat/slay creatures of extreme alignments (lawful good, chaotic good, lawful evil, chaotic evil)") : t("Defeat/slay {alignment} creatures (the opposed alignment)", { alignment: alignName(OPPOSED[ctx.align]) }),
+  arcane: () => t("Defeat/slay arcane spellcasters (including spellcasting monsters and those that use spell-like abilities)"),
+  divine: () => t("Defeat/slay divine spellcasters (including divine entities and servitors)"),
+  noncaster: () => t("Defeat/slay nonspellcasters"),
+  creatureType: (ctx) => t("Defeat/slay {foe}", { foe: ctx.foe("type") }),
+  race: (ctx) => t("Defeat/slay {foe}", { foe: ctx.foe("race") }),
+  defendRace: (ctx) => t("Defend {foe}", { foe: ctx.foe("race") }),
+  slayDeityServants: () => t("Defeat/slay the servants of a specific deity (the GM chooses the deity)"),
+  defendDeity: () => t("Defend the servants and interests of a specific deity (the GM chooses the deity)"),
+  slayAll: () => t("Defeat/slay all (other than the item and the wielder)"),
   choose: () => "A purpose of the GM's choice",
 };
 
@@ -56,14 +61,14 @@ export class CuriosIntelligence {
     if (this.tables) return this.tables;
     const cfg = globalThis.CONFIG?.D35E?.intelligentItemTables ?? {};
     const pack = game.packs.get(cfg.pack ?? "D35E.intelligent-item-tables");
-    if (!pack) throw new Error("D35E's Intelligent Item Tables compendium isn't available.");
+    if (!pack) throw new Error(t("D35E's Intelligent Item Tables compendium isn't available."));
     const docs = await pack.getDocuments();
     const out = {};
     const NAME = { alignment: /alignment/i, capabilities: /capabilit|mental/i, lesser: /lesser/i, greater: /greater/i, purpose: /purpose/i, dedicated: /dedicated/i };
     for (const kind of Object.keys(NAME)) {
-      const t = docs.find((d) => d.id === cfg[kind] || d._id === cfg[kind]) ?? docs.find((d) => NAME[kind].test(D.enName(d)) || NAME[kind].test(d.name)); // English name first (Babele)
-      if (!t) continue;
-      out[kind] = [...(t.results ?? [])].map((r) => ({
+      const tbl = docs.find((d) => d.id === cfg[kind] || d._id === cfg[kind]) ?? docs.find((d) => NAME[kind].test(D.enName(d)) || NAME[kind].test(d.name)); // English name first (Babele)
+      if (!tbl) continue;
+      out[kind] = [...(tbl.results ?? [])].map((r) => ({
         range: r.range, text: r.description || r.text || r.name || "", uuid: r.documentUuid ?? null,
         flags: foundry.utils.getProperty(r, "flags.D35E") ?? r.flags?.D35E ?? {},
       })).sort((a, b) => a.range[0] - b.range[0]);
@@ -76,7 +81,7 @@ export class CuriosIntelligence {
   options(kind) {
     return (this.tables?.[kind] ?? []).map((x, i) => {
       const price = x.flags.priceGp ?? x.flags.priceModifierGp;
-      return { value: String(i), label: `${x.text.replace(/\s*\+[\d,]+ gp\.?$/, "")}${price ? ` (+${Number(price).toLocaleString("en-US")} gp)` : ""}` };
+      return { value: String(i), label: `${x.text.replace(/\s*\+[\d,]+ gp\.?$/, "")}${price ? ` (+${gp(Number(price))})` : ""}` };
     });
   }
 
@@ -132,14 +137,14 @@ export class CuriosIntelligence {
    * Returns { intelligent, price, ego, lines, summary }.
    */
   async roll(choice = {}) {
-    const t = await this.loadTables();
+    const tbl = await this.loadTables();
     const need = this.axes(choice.abilities ?? []);
     // Alignment: a fixed one (the creator's, or the GM's choice), or rolled until it suits holy/unholy/axiomatic/anarchic
     let align = choice.alignment ?? null;
     for (let i = 0; !align && i < 60; i++) { const r = this.rowFor("alignment", d100()); if (r && this.fits(r.flags.alignment, need)) align = r.flags.alignment; }
     align ??= `${need.lc ?? "n"}${need.ge ?? "n"}`;
     // Mental scores and capabilities
-    const capRow = choice.capabilities != null && choice.capabilities !== "" ? t.capabilities[Number(choice.capabilities)] : this.rowFor("capabilities", d100());
+    const capRow = choice.capabilities != null && choice.capabilities !== "" ? tbl.capabilities[Number(choice.capabilities)] : this.rowFor("capabilities", d100());
     const c = capRow.flags;
     const high = Number(c.int ?? 12), low = 10, lowAt = pick(["int", "wis", "cha"]);
     const scores = { int: lowAt === "int" ? low : high, wis: lowAt === "wis" ? low : high, cha: lowAt === "cha" ? low : high };
@@ -147,7 +152,7 @@ export class CuriosIntelligence {
     const rollPowers = async (tier, n, fixed = []) => {
       const out = [], seen = new Set();
       for (let i = 0; i < n; i++) {
-        let row = fixed[i] != null && fixed[i] !== "" ? t[tier][Number(fixed[i])] : null;
+        let row = fixed[i] != null && fixed[i] !== "" ? tbl[tier][Number(fixed[i])] : null;
         for (let k = 0; !row && k < 60; k++) { const r = this.rowFor(tier, d100()); if (r && !seen.has(r.text)) row = r; }
         if (!row || seen.has(row.text)) continue;
         seen.add(row.text);
@@ -162,8 +167,8 @@ export class CuriosIntelligence {
     const pc = choice.purpose ?? "rule";
     const wantPurpose = pc === "none" ? false : pc === "rule" ? this.purposeByRule(greater.length) : true;
     if (wantPurpose) {
-      purposeRow = /^\d+$/.test(String(pc)) ? t.purpose[Number(pc)] : this.rowFor("purpose", d100());
-      const dRow = choice.dedicated != null && choice.dedicated !== "" ? t.dedicated[Number(choice.dedicated)] : this.rowFor("dedicated", d100());
+      purposeRow = /^\d+$/.test(String(pc)) ? tbl.purpose[Number(pc)] : this.rowFor("purpose", d100());
+      const dRow = choice.dedicated != null && choice.dedicated !== "" ? tbl.dedicated[Number(choice.dedicated)] : this.rowFor("dedicated", d100());
       if (dRow) dedicated = { row: dRow, power: await this.power(dRow, "dedicated") };
     }
     const foes = this.data.tables.baneFoes;
@@ -171,11 +176,11 @@ export class CuriosIntelligence {
     const purposeText = purposeRow ? (PURPOSE_TEXT[purposeRow.flags.code] ?? (() => purposeRow.text))(ctx) : "";
     // Languages: Common plus one per point of Intelligence bonus
     const extra = Math.max(0, mod(scores.int));
-    const languages = `Common${extra ? ` and ${extra} more (the GM's choice)` : ""}`;
+    const languages = extra ? t("Common and {n} more (the GM's choice)", { n: extra }) : t("Common");
     const senses = [];
-    if (c.vision) senses.push(`${c.vision} ft. vision and hearing`);
-    if (c.darkvision) senses.push(`${c.darkvision} ft. darkvision and hearing`);
-    if (c.blindsense) senses.push("blindsense");
+    if (c.vision) senses.push(t("{n} ft. vision and hearing", { n: c.vision }));
+    if (c.darkvision) senses.push(t("{n} ft. darkvision and hearing", { n: c.darkvision }));
+    if (c.blindsense) senses.push(t("blindsense"));
     const powers = [...lesser, ...greater, ...(dedicated ? [dedicated] : [])].map((p) => p.power);
     const intelligent = {
       enabled: true, alignment: align, ...scores,
@@ -191,13 +196,13 @@ export class CuriosIntelligence {
     const ego = (Number(choice.effective ?? choice.bonus) || 0) + lesser.length + 2 * greater.length + (purposeRow ? 4 : 0)
       + (c.telepathy ? 1 : 0) + (c.readLanguages ? 1 : 0) + (c.readMagic ? 1 : 0) + ["int", "wis", "cha"].reduce((s, k) => s + Math.max(0, mod(scores[k])), 0);
     const lines = [
-      `Alignment ${ALIGN_NAMES[align]}; Int ${scores.int}, Wis ${scores.wis}, Cha ${scores.cha}; Ego ${ego}`,
-      `Communication: ${[c.empathy ? "empathy" : "", c.speech ? "speech" : "", c.telepathy ? "telepathy" : "", c.readLanguages ? "reads languages" : "", c.readMagic ? "reads magic" : ""].filter(Boolean).join(", ")}; speaks ${languages}`,
-      `Senses: ${senses.join("; ")}`,
-      ...lesser.map((p) => `Lesser power: ${p.row.text}`), ...greater.map((p) => `Greater power: ${p.row.text}`),
-      ...(purposeRow ? [`Special purpose: ${purposeText}`, `Dedicated power: ${dedicated?.row.text ?? "—"}`] : []),
+      t("Alignment {alignment}; Int {int}, Wis {wis}, Cha {cha}; Ego {ego}", { alignment: alignName(align), int: scores.int, wis: scores.wis, cha: scores.cha, ego }),
+      t("Communication: {ways}; speaks {languages}", { ways: [c.empathy ? t("empathy") : "", c.speech ? t("speech") : "", c.telepathy ? t("telepathy") : "", c.readLanguages ? t("reads languages") : "", c.readMagic ? t("reads magic") : ""].filter(Boolean).join(", "), languages }),
+      t("Senses: {senses}", { senses: senses.join("; ") }),
+      ...lesser.map((p) => t("Lesser power: {power}", { power: p.row.text })), ...greater.map((p) => t("Greater power: {power}", { power: p.row.text })),
+      ...(purposeRow ? [t("Special purpose: {purpose}", { purpose: purposeText }), t("Dedicated power: {power}", { power: dedicated?.row.text ?? "—" })] : []),
     ];
-    return { intelligent, price, ego, lines, summary: `intelligent (${ALIGN_NAMES[align]}, Ego ${ego})` };
+    return { intelligent, price, ego, lines, summary: t("intelligent ({alignment}, Ego {ego})", { alignment: alignName(align), ego }) };
   }
 
   /** Does an intelligent item get a special purpose? Generation settings: always with greater powers, plus a % of others. */
@@ -213,7 +218,7 @@ export class CuriosIntelligence {
     d.system.intelligent = intel.intelligent;
     d.system.price = Math.round(((Number(d.system.price) || 0) + intel.price) * 100) / 100;
     foundry.utils.setProperty(d, `flags.${MOD}.intelligence`, { price: intel.price, ego: intel.ego });
-    const html = `<h3>Intelligent item</h3><ul>${intel.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul><p><em>Intelligence adds ${gp(intel.price)} to the price.</em></p>`;
+    const html = `<h3>${esc(t("Intelligent item"))}</h3><ul>${intel.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul><p><em>${esc(t("Intelligence adds {gp} to the price.", { gp: gp(intel.price) }))}</em></p>`;
     d.system.description ??= {};
     d.system.description.value = `${d.system.description.value ?? ""}${html}`;
     return d;
@@ -228,12 +233,13 @@ export class CuriosIntelligence {
     d.system.price = built.price;
     if (built.craft) built.craft.magicEach = Math.round((built.craft.magicEach + intel.price) * 100) / 100;
     const flags = d.flags?.[MOD];
-    if (flags?.price) flags.price.push([`intelligence (${intel.summary})`, intel.price]);
+    if (flags?.price) flags.price.push([t("intelligence ({summary})", { summary: intel.summary }), intel.price]);
     if (flags) flags.intelligence = { price: intel.price, ego: intel.ego };
-    const html = `<h3>Intelligent item</h3><ul>${intel.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul><p><em>Intelligence adds ${gp(intel.price)} to the price.</em></p>`;
+    const html = `<h3>${esc(t("Intelligent item"))}</h3><ul>${intel.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul><p><em>${esc(t("Intelligence adds {gp} to the price.", { gp: gp(intel.price) }))}</em></p>`;
     const desc = d.system.description ?? {};
-    desc.value = String(desc.value ?? "").replace(/(<hr>)/, `${html}$1`);
-    if (!/Intelligent item/.test(desc.value)) desc.value += html;
+    const before = String(desc.value ?? "");
+    desc.value = before.replace(/(<hr>)/, `${html}$1`);
+    if (desc.value === before) desc.value += html; // no <hr>: at the end
     d.system.description = desc;
     built.summary = `${built.summary}; ${intel.summary}`;
     return built;

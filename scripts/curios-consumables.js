@@ -16,16 +16,19 @@ const { MOD, KINDS, normName } = D;
  * caster level. Heighten raises the spell to a chosen level. Effective level 10th–19th (or caster level 21–30) makes an epic
  * item, allowed only while Epic items is on (SRD epic scrolls; potions and wands by the same rule, Axecleft house rule).
  */
+/** Spell items' names: "Scroll of Empowered Fireball (CL 10)" (a pattern translated in lang/<code>.json; Axecleft's Tools 8.3 grammar). */
+export const CONSUMABLE_NAME = /*t*/"{kind} of {metamagic} {spell}[ ({level})]";
+const KIND_WORDS = [/*t*/"Potion", /*t*/"Oil", /*t*/"Scroll", /*t*/"Wand", /*t*/"Psionic tattoo", /*t*/"Power stone", /*t*/"Dorje"]; // eslint-disable-line no-unused-vars
 export const METAMAGIC = {
-  empower: { feat: "Empower Spell", word: "Empowered", adj: 2 },
-  enlarge: { feat: "Enlarge Spell", word: "Enlarged", adj: 1 },
-  extend: { feat: "Extend Spell", word: "Extended", adj: 1 },
-  heighten: { feat: "Heighten Spell", word: "Heightened", adj: 0 },
-  maximize: { feat: "Maximize Spell", word: "Maximized", adj: 3 },
-  quicken: { feat: "Quicken Spell", word: "Quickened", adj: 4 },
-  silent: { feat: "Silent Spell", word: "Silent", adj: 1 },
-  still: { feat: "Still Spell", word: "Still", adj: 1 },
-  widen: { feat: "Widen Spell", word: "Widened", adj: 3 },
+  empower: { feat: /*t*/"Empower Spell", word: /*t*/"Empowered", adj: 2 },
+  enlarge: { feat: /*t*/"Enlarge Spell", word: /*t*/"Enlarged", adj: 1 },
+  extend: { feat: /*t*/"Extend Spell", word: /*t*/"Extended", adj: 1 },
+  heighten: { feat: /*t*/"Heighten Spell", word: "Heightened", adj: 0 },
+  maximize: { feat: /*t*/"Maximize Spell", word: /*t*/"Maximized", adj: 3 },
+  quicken: { feat: /*t*/"Quicken Spell", word: /*t*/"Quickened", adj: 4 },
+  silent: { feat: /*t*/"Silent Spell", word: /*t*/"Silent", adj: 1 },
+  still: { feat: /*t*/"Still Spell", word: /*t*/"Still", adj: 1 },
+  widen: { feat: /*t*/"Widen Spell", word: /*t*/"Widened", adj: 3 },
 };
 /** "empowered" / "Empower Spell" / "max" → "empower" (or null). */
 export function metamagicKey(word) {
@@ -58,6 +61,12 @@ export class CuriosSpells {
     return out;
   }
   clear() { this.cache = null; }
+  /** A spell or power's name as this world shows it (French in a Babele world), from its English name; the name itself if unknown (needs index() first). */
+  shownName(name) {
+    const k = normName(name);
+    const h = this.cache?.spells.get(k)?.[0] ?? this.cache?.powers.get(k)?.[0];
+    return h?.display ?? name;
+  }
 
   /**
    * A spell or power's name as your sources spell it, or null (needs index() first). Understands the SRD's word order:
@@ -130,13 +139,12 @@ export class CuriosSpells {
    */
   problems(facts, kind, level, { gm = true } = {}) {
     const k = KINDS[kind], out = [];
-    if (k.psionic !== facts.isPower) out.push(k.psionic ? `${facts.name} is a spell, not a power.` : `${facts.name} is a power, not a spell.`);
+    if (k.psionic !== facts.isPower) out.push(D.t(k.psionic ? "{name} is a spell, not a power." : "{name} is a power, not a spell.", { name: facts.name }));
     const capped = kind === "potion" || kind === "tattoo" || kind === "wand" || kind === "dorje";
     const cap = kind === "potion" || kind === "tattoo" ? this.potionCap({ gm }) : kind === "wand" || kind === "dorje" ? this.wandCap({ gm }) : kind === "scroll" && epicOn() ? 19 : k.maxLevel; // epic scrolls: 10th–19th (SRD)
-    const th = (n) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
-    if (level > cap) out.push(`${k.label}s hold ${th(cap)}-level ${facts.isPower ? "powers" : "spells"} or lower${capped && gm ? ` (the GM can raise the highest ${kind === "wand" || kind === "dorje" ? "wand" : "potion"} level on the Curios tab)` : ""}.`);
-    if ((kind === "potion" || kind === "tattoo") && facts.personal) out.push(`${facts.name} has a range of personal, so it can't be a ${k.label.toLowerCase()} (SRD).`);
-    else if ((kind === "potion" || kind === "tattoo") && !facts.target) out.push(`${facts.name} affects an area or makes an effect instead of targeting a creature, so it can't be a ${k.label.toLowerCase()} (SRD).`);
+    if (level > cap) out.push(D.t(facts.isPower ? "{kind}: {level}-level powers or lower" : "{kind}: {level}-level spells or lower", { kind: D.t(k.label), level: D.ord(cap) }) + (capped && gm ? ` ${D.t(kind === "wand" || kind === "dorje" ? "(the GM can raise the highest wand level on the Curios tab)" : "(the GM can raise the highest potion level on the Curios tab)")}` : "") + ".");
+    if ((kind === "potion" || kind === "tattoo") && facts.personal) out.push(D.t("{name} has a range of personal, so it can't be a {kind} (SRD).", { name: facts.name, kind: D.t(k.label).toLowerCase() }));
+    else if ((kind === "potion" || kind === "tattoo") && !facts.target) out.push(D.t("{name} affects an area or makes an effect instead of targeting a creature, so it can't be a {kind} (SRD).", { name: facts.name, kind: D.t(k.label).toLowerCase() }));
     return out;
   }
 
@@ -147,16 +155,16 @@ export class CuriosSpells {
   async make(spec) {
     const kind = spec.kind;
     const k = KINDS[kind];
-    if (!k) throw new Error(`Unknown item kind "${kind}".`);
+    if (!k) throw new Error(D.t("Unknown item kind \"{kind}\".", { kind }));
     const hit = spec.hit ?? await this.find(spec.name, { power: k.psionic });
-    if (!hit) throw new Error(`${k.psionic ? "Power" : "Spell"} "${spec.name}" is not in your ${k.psionic ? "Power" : "Spell"} sources.`);
+    if (!hit) throw new Error(D.t(k.psionic ? "Power \"{name}\" is not in your Power sources." : "Spell \"{name}\" is not in your Spell sources.", { name: spec.name }));
     const f = hit.facts;
     // Which list: scrolls are arcane or divine; other spell items use the lowest level the spell has
     let list = spec.list ?? (kind === "scroll" ? (f.arcane !== null ? "arcane" : "divine") : null);
     if (list === "arcane" && f.arcane === null) list = "divine";
     if (list === "divine" && f.divine === null) list = f.arcane !== null ? "arcane" : null;
     const level = f.isPower ? f.psionic : list === "arcane" ? f.arcane : list === "divine" ? f.divine : f.level;
-    if (level === null || level === undefined || !Number.isFinite(level)) throw new Error(`${hit.name} has no class level in its data.`);
+    if (level === null || level === undefined || !Number.isFinite(level)) throw new Error(D.t("{name} has no class level in its data.", { name: hit.display ?? hit.name }));
     // Metamagic (spells only): [{ key, to? }] — heighten takes "to", the level it raises the spell to
     const mm = (k.psionic ? [] : spec.metamagic ?? []).map((x) => (typeof x === "string" ? { key: metamagicKey(x) } : { ...x, key: metamagicKey(x.key) })).filter((x) => x.key);
     const heightTo = Math.max(level, ...mm.filter((x) => x.key === "heighten").map((x) => Number(x.to) || level));
@@ -165,10 +173,10 @@ export class CuriosSpells {
     const minCl = minClFor(effLevel);
     const cl = Math.max(minCl, Math.min(40, Number(spec.cl) || minCl));
     const epic = effLevel > 9 || cl > 20;
-    if (epic && !epicOn()) problems.push(effLevel > 9 ? `Effective spell level ${effLevel} (with metamagic) is above 9th: an epic item, and Epic items is off.` : `Caster level ${cl} is above 20th: an epic item, and Epic items is off.`);
+    if (epic && !epicOn()) problems.push(effLevel > 9 ? D.t("Effective spell level {n} (with metamagic) is above 9th: an epic item, and Epic items is off.", { n: effLevel }) : D.t("Caster level {n} is above 20th: an epic item, and Epic items is off.", { n: cl }));
     if (problems.length && !spec.force) throw new Error(problems.join(" "));
     const doc = await game.packs.get(hit.pack)?.getDocument(hit.id);
-    if (!doc) throw new Error(`Could not read ${hit.name} from ${hit.pack}.`);
+    if (!doc) throw new Error(D.t("Could not read {name} from {pack}.", { name: hit.display ?? hit.name, pack: hit.pack }));
     const spell = doc.toObject();
     // The converter works out save DCs from the level: a heightened spell keeps its higher level, other metamagic doesn't change DCs
     const data = await D.toConsumable(spell, kind, { cl, level: Math.min(9, heightTo), scrollType: kind === "scroll" ? list : "" });
@@ -177,18 +185,24 @@ export class CuriosSpells {
     const per = k.charges ? 50 : 1;
     const price = Math.max(0.5, effLevel) * cl * k.mult + (comp.gp + comp.xp * 5) * per;
     data.system.price = price;
-    const words = mm.map((x) => (x.key === "heighten" ? `Heightened (${heightTo}${heightTo === 1 ? "st" : heightTo === 2 ? "nd" : heightTo === 3 ? "rd" : "th"})` : METAMAGIC[x.key].word));
-    // The spell as shown in this world (a translated name with Babele); the English name stays in the flags for matching
-    data.name = `${k.label} of ${words.length ? `${words.join(" ")} ` : ""}${hit.display ?? hit.name}${cl > minCl || mm.length ? ` (${k.psionic ? "ML" : "CL"} ${cl})` : ""}`;
-    if (mm.length) {
-      const desc = data.system.description ??= {};
-      desc.value = `<p><strong>${esc(mm.map((x) => METAMAGIC[x.key].feat).join(", "))}:</strong> ${esc(hit.name)} as a ${effLevel}${effLevel === 1 ? "st" : effLevel === 2 ? "nd" : effLevel === 3 ? "rd" : "th"}-level spell, caster level ${cl}. Apply the metamagic when it is used.</p>${desc.value ?? ""}`;
-    }
-    if (epic) foundry.utils.setProperty(data, "system.epic", true);
+    const words = mm.map((x) => (x.key === "heighten" ? `Heightened (${D.ordEn(heightTo)})` : METAMAGIC[x.key].word));
+    const wordsShown = mm.map((x) => (x.key === "heighten" ? D.t("Heightened ({level})", { level: D.ord(heightTo) }) : D.W(METAMAGIC[x.key].word, D.t(METAMAGIC[x.key].word))));
     // Oils: potions of spells cast on objects (bless weapon, magic vestment)
     const target = String(spell.system?.target?.value ?? spell.system?.target ?? "");
-    if (kind === "potion" && /\b(weapon|armor|shield|object)\b/i.test(target) && !/\b(creature|you)\b/i.test(target)) data.name = data.name.replace(/^Potion/, "Oil");
-    foundry.utils.setProperty(data, "flags.world.axecleftEn", `${k.label} of ${words.length ? `${words.join(" ")} ` : ""}${hit.name}`); // its English identity (Axecleft's Tools 8)
+    // (the target text may be translated by Babele: French, Spanish and Portuguese words too)
+    const oil = kind === "potion" && /\b(weapon|armor|shield|object|armes?|armures?|boucliers?|objets?|armas?|armaduras?|escudos?|objetos?)\b/iu.test(target)
+      && !/\b(creature|you|créatures?|vous|criaturas?|tú|você)\b/iu.test(target);
+    const kindEn = oil ? "Oil" : k.label;
+    const showLevel = cl > minCl || mm.length;
+    // The name in this world's language (the spell as Babele translates it, the language's word order); the English one stays in the flags for matching
+    data.name = D.N(CONSUMABLE_NAME, { kind: D.W(kindEn, D.t(kindEn)), metamagic: wordsShown, spell: hit.display ?? hit.name, level: showLevel ? D.t(k.psionic ? "ML {n}" : "CL {n}", { n: cl }) : "" });
+    if (mm.length) {
+      const desc = data.system.description ??= {};
+      desc.value = `<p><strong>${esc(mm.map((x) => D.t(METAMAGIC[x.key].feat)).join(", "))}:</strong> ${esc(D.t("{spell} as a {level}-level spell, caster level {cl}. Apply the metamagic when it is used.", { spell: hit.display ?? hit.name, level: D.ord(effLevel), cl }))}</p>${desc.value ?? ""}`;
+    }
+    if (epic) foundry.utils.setProperty(data, "system.epic", true);
+
+    foundry.utils.setProperty(data, "flags.world.axecleftEn", D.N(CONSUMABLE_NAME, { kind: k.label, metamagic: words, spell: hit.name }, { lang: "en" })); // its English identity (Axecleft's Tools 8)
     foundry.utils.setProperty(data, `flags.${MOD}`, { kind, spell: hit.name, spellShown: hit.display ?? hit.name, level, effLevel, metamagic: mm, cl, epic, list: list ?? (f.isPower ? "psionic" : null), source: hit.pack });
     if (spec.unidentified) D.setUnidentified(data, k.unid);
     // base: the magic alone (what crafting halves and divides by 25); comp: component costs the item carries

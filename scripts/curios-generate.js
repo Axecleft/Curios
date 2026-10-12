@@ -35,7 +35,11 @@ const die = (n) => 1 + Math.floor(Math.random() * n);
 const pick = (l) => l[Math.floor(Math.random() * l.length)];
 const inGrade = (rows, grade, r) => rows.find((x) => x[grade] && r >= x[grade][0] && r <= x[grade][1]);
 const inD = (rows, r) => rows.find((x) => x.d && r >= x.d[0] && r <= x.d[1]);
-const gp = (n) => `${Number(Math.round(n * 100) / 100).toLocaleString("en-US")} gp`;
+const { gp, t, ord } = D;
+/*t*/"minor"; /*t*/"medium"; /*t*/"major"; /*t*/"arcane"; /*t*/"divine"; // grade and scroll words
+/** "minor potion" for a placeholder. */
+const ph = (grade, what) => t("{grade} {item}", { grade: t(grade), item: t(what).toLowerCase() });
+const LIT = () => `; ${t("sheds light")}`;
 const rollDice = (f) => T()?.rollDice?.(f) ?? 1;
 
 export const CATS = { "magic:potion": "potions", "magic:scroll": "scrolls", "magic:wand": "wands", "magic:ring": "rings", "magic:rod": "rods", "magic:staff": "staffs", "magic:wondrous": "wondrous" };
@@ -86,9 +90,9 @@ export class CuriosGenerator {
     if (!data) {
       // Not in any compendium (D35E lacks a few SRD rings): a plain item with the SRD name and price, for the GM to finish
       data = D.masterBase({ name: row.item ?? row.name, img: "icons/svg/item-bag.svg", price: row.price,
-        description: `<p><em>Axecleft's Curios: ${row.item ?? row.name} is not in your item compendiums. Made with its SRD name and price only; add its description and effects.</em></p>` });
+        description: `<p><em>${D.t("Axecleft's Curios: {name} is not in your item compendiums. Made with its SRD name and price only; add its description and effects.", { name: row.item ?? row.name })}</em></p>` });
       if (/^ring\b/i.test(data.name)) data.system.slot = "ring";
-      note = "not in your compendiums: name and price only";
+      note = t("not in your compendiums: name and price only");
     }
     delete data._id; delete data.folder; delete data.sort;
     T()?.applyPriceCorrection?.(hit?.pack ?? "", data);
@@ -101,9 +105,9 @@ export class CuriosGenerator {
       data.name = data.name !== hit?.name && hit ? `${data.name} (${D.titleCase(row.name)})` : D.titleCase(row.name);
       data.system.identifiedName = data.name;
       data.system.price = row.price;
-      if (normName(hit?.name) !== normName(data.name)) note = note || `${hit?.name ?? "item"} as ${data.name}`;
+      if (normName(hit?.name) !== normName(data.name)) note = note || t("{item} as {name}", { item: hit?.display ?? hit?.name ?? t("item"), name: data.name });
     }
-    if (!(Number(data.system?.price) > 0) && row.price) { data.system.price = row.price; note = note || "SRD price (none in the compendium)"; }
+    if (!(Number(data.system?.price) > 0) && row.price) { data.system.price = row.price; note = note || t("SRD price (none in the compendium)"); }
     if (row.amount) data.system.quantity = row.amount;
     // A psicrown (D35E's "Dominator", "Evader"…): its points and powers (curios-psionic.js); raw: the caller sets it up
     const crown = raw ? null : crownFacts(this.api, data);
@@ -179,10 +183,10 @@ export class CuriosGenerator {
           if (m.data.system?.identified === false) m.data.system.identifiedName = m.data.name;
           m.name = m.data.name;
         }
-        return { name: m.name, data: m.data, summary: `${KINDS[kind].label}, ${D.minCasterLevel(m.level) === m.cl ? "" : `CL ${m.cl}, `}${gp(m.price)} (SRD ${grade} table)` };
+        return { name: m.name, data: m.data, summary: `${t(KINDS[kind].label)}, ${D.minCasterLevel(m.level) === m.cl ? "" : `${t("CL {n}", { n: m.cl })}, `}${gp(m.price)} ${t("(SRD {grade} table)", { grade: t(grade) })}` };
       } catch (err) { console.warn(`${MOD} | ${kind} of ${spell}: ${err.message}`); }
     }
-    return { name: `${grade} ${KINDS[kind].label.toLowerCase()}`, placeholder: true, summary: "no spell from the table was found in your Spell sources" };
+    return { name: ph(grade, KINDS[kind].label), placeholder: true, summary: t("no spell from the table was found in your Spell sources") };
   }
 
   /** A scroll: arcane or divine, 1d3/1d4/1d6 spells by grade, each with its own level roll. */
@@ -203,16 +207,15 @@ export class CuriosGenerator {
         catch (err) { missing.push(name); }
       }
     }
-    if (!made.length) return { name: `${grade} scroll`, placeholder: true, summary: `no spell from the table was found in your Spell sources${missing.length ? ` (${missing.slice(0, 3).join(", ")})` : ""}` };
+    if (!made.length) return { name: ph(grade, "Scroll"), placeholder: true, summary: `${t("no spell from the table was found in your Spell sources")}${missing.length ? ` (${missing.slice(0, 3).join(", ")})` : ""}` };
     if (made.length === 1) {
       const m = made[0];
       if (unidentified) D.setUnidentified(m.data, "Scroll");
-      return { name: m.name, data: m.data, summary: `${type} scroll, ${gp(m.price)}` };
+      return { name: m.name, data: m.data, summary: `${t("{type} scroll", { type: t(type) })}, ${gp(m.price)}` };
     }
-    const data = makeMaster("scroll", made, { unidentified });
-    data.name = data.name.replace(/^Scroll/, `${type[0].toUpperCase()}${type.slice(1)} Scroll`);
+    const data = makeMaster("scroll", made, { unidentified, label: type === "divine" ? "Divine Scroll" : "Arcane Scroll" });
     data.system.identifiedName = data.name;
-    return { name: data.name, data, summary: `${type} scroll with ${made.length} spells, ${gp(data.system.price)}` };
+    return { name: data.name, data, summary: `${t("{type} scroll with {n} spells", { type: t(type), n: made.length })}, ${gp(data.system.price)}` };
   }
 
   /**
@@ -249,17 +252,17 @@ export class CuriosGenerator {
         catch (err) { /* try another */ }
       }
     }
-    if (!made.length) return { name: "epic scroll", placeholder: true, summary: "no spells of 5th–9th level in your Spell sources" };
+    if (!made.length) return { name: t("epic scroll"), placeholder: true, summary: t("no spells of 5th–9th level in your Spell sources") };
     if (made.length === 1) {
       const m = made[0];
       if (unidentified) D.setUnidentified(m.data, "Scroll");
-      return { name: m.name, data: m.data, summary: `Epic ${type} scroll, ${gp(m.price)} (${m.effLevel}th level, CL ${m.cl})` };
+      return { name: m.name, data: m.data, summary: `${t("Epic {type} scroll", { type: t(type) })}, ${gp(m.price)} (${t("{level} level, CL {cl}", { level: ord(m.effLevel), cl: m.cl })})` };
     }
     const data = makeMaster("scroll", made, { unidentified });
     data.name = `Epic ${type[0].toUpperCase()}${type.slice(1)} Scroll`;
     data.system.identifiedName = data.name;
     foundry.utils.setProperty(data, "system.epic", true);
-    return { name: data.name, data, summary: `Epic ${type} scroll with ${made.length} spells (${made.map((m) => `${m.effLevel}th`).join(", ")}), ${gp(data.system.price)}` };
+    return { name: data.name, data, summary: `${t("Epic {type} scroll with {n} spells", { type: t(type), n: made.length })} (${made.map((m) => ord(m.effLevel)).join(", ")}), ${gp(data.system.price)}` };
   }
 
   /** Psionic tattoo, power stone or dorje (house rule: a power of the level the SRD table would give). */
@@ -281,14 +284,14 @@ export class CuriosGenerator {
         try { made.push(await this.spells.make({ hit: pick(pool), kind, force: true })); break; } catch (err) { /* try another */ }
       }
     }
-    if (!made.length) return { name: `${grade} ${KINDS[kind].label.toLowerCase()}`, placeholder: true, summary: "no power of that level in your Power sources" };
+    if (!made.length) return { name: ph(grade, KINDS[kind].label), placeholder: true, summary: t("no power of that level in your Power sources") };
     if (made.length === 1) {
       const m = made[0];
       if (unidentified) D.setUnidentified(m.data, KINDS[kind].unid);
-      return { name: m.name, data: m.data, summary: `${KINDS[kind].label}, ${gp(m.price)} (psionic, house rule)` };
+      return { name: m.name, data: m.data, summary: `${t(KINDS[kind].label)}, ${gp(m.price)} ${t("(psionic, house rule)")}` };
     }
     const data = makeMaster("powerstone", made, { unidentified });
-    return { name: data.name, data, summary: `power stone with ${made.length} powers, ${gp(data.system.price)} (psionic, house rule)` };
+    return { name: data.name, data, summary: `${t("power stone with {n} powers", { n: made.length })}, ${gp(data.system.price)} ${t("(psionic, house rule)")}` };
   }
 
   /** Ring, rod, staff or wondrous item by the SRD table. */
@@ -305,10 +308,10 @@ export class CuriosGenerator {
       const smart = await maybeIntelligent(this.api, got.data, intel);
       if (smart) got.price = Number(got.data.system.price) || got.price;
       if (!got) continue;
-      const label = { "magic:ring": "Ring", "magic:rod": "Rod", "magic:staff": "Staff", "magic:wondrous": "Wondrous item" }[category];
-      return { name: got.name, data: got.data, summary: `${label}, ${gp(got.price)}${got.from ? `; from ${game.packs.get(got.from)?.metadata?.label ?? got.from}` : ""}${got.note ? ` (${got.note})` : ""}${lit ? "; sheds light" : ""}${smart ? `; ${smart.summary}` : ""}` };
+      const label = t({ "magic:ring": /*t*/"Ring", "magic:rod": /*t*/"Rod", "magic:staff": /*t*/"Staff", "magic:wondrous": /*t*/"Wondrous item" }[category]);
+      return { name: got.name, data: got.data, summary: `${label}, ${gp(got.price)}${got.from ? `; ${t("from {source}", { source: game.packs.get(got.from)?.metadata?.label ?? got.from })}` : ""}${got.note ? ` (${got.note})` : ""}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
     }
-    return { name: `${grade} ${category.split(":")[1]}`, placeholder: true, summary: "nothing on the SRD table could be made" };
+    return { name: ph(grade, { "magic:ring": "Ring", "magic:rod": "Rod", "magic:staff": "Staff", "magic:wondrous": "Wondrous item" }[category] ?? category), placeholder: true, summary: t("nothing on the SRD table could be made") };
   }
 
   /** An SRD epic ring, rod, staff or wondrous item (Epic Magic Items tables). exclude: names already in this treasure. */
@@ -323,15 +326,15 @@ export class CuriosGenerator {
       if (row.derive) {
         // Not in D35E (Ring of Epic Protection): made from its nonepic version with the SRD text
         got.data.system.description.value = `${row.derive}<hr>${got.data.system.description.value ?? ""}`;
-        got.note = `made from ${row.item}`;
+        got.note = t("made from {item}", { item: row.item });
       }
       foundry.utils.setProperty(got.data, "system.epic", true);
       const lit = maybeLight(got.data, { force: light });
       const smart = await maybeIntelligent(this.api, got.data, intel);
-      const label = { "magic:ring": "Epic ring", "magic:rod": "Epic rod", "magic:staff": "Epic staff", "magic:wondrous": "Epic wondrous item" }[category];
-      return { name: got.name, data: got.data, summary: `${label}, ${gp(Number(got.data.system.price) || got.price)} (SRD epic table)${got.note ? ` (${got.note})` : ""}${lit ? "; sheds light" : ""}${smart ? `; ${smart.summary}` : ""}` };
+      const label = t({ "magic:ring": /*t*/"Epic ring", "magic:rod": /*t*/"Epic rod", "magic:staff": /*t*/"Epic staff", "magic:wondrous": /*t*/"Epic wondrous item" }[category]);
+      return { name: got.name, data: got.data, summary: `${label}, ${gp(Number(got.data.system.price) || got.price)} ${t("(SRD epic table)")}${got.note ? ` (${got.note})` : ""}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
     }
-    return { name: `epic ${category.split(":")[1]}`, placeholder: true, summary: "nothing on the SRD epic table could be made" };
+    return { name: t({ "magic:ring": "Epic ring", "magic:rod": "Epic rod", "magic:staff": "Epic staff", "magic:wondrous": "Epic wondrous item" }[category] ?? category), placeholder: true, summary: t("nothing on the SRD epic table could be made") };
   }
 
   /** A psionic shop's permanent items: universal items etc. from the sources, by price grade. */
@@ -345,11 +348,11 @@ export class CuriosGenerator {
       if (crownRow(this.api, h.name)) continue; // psicrowns come from staff rolls (SRD psicrown table)
       pool.push(h);
     }
-    if (!pool.length) return { name: `${grade} psionic item`, placeholder: true, summary: "no psionic items of that grade in your item sources" };
+    if (!pool.length) return { name: ph(grade, "Psionic item"), placeholder: true, summary: t("no psionic items of that grade in your item sources") };
     const h = pick(pool);
     const got = await this.fixedItem({ name: h.name, item: h.name }, { unidentified });
     const lit = maybeLight(got.data, { force: light });
     const smart = await maybeIntelligent(this.api, got.data, intel);
-    return { name: got.name, data: got.data, summary: `Psionic item, ${gp(Number(got.data.system.price) || got.price)}${lit ? "; sheds light" : ""}${smart ? `; ${smart.summary}` : ""}` };
+    return { name: got.name, data: got.data, summary: `${t("Psionic item")}, ${gp(Number(got.data.system.price) || got.price)}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
   }
 }

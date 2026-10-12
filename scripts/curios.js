@@ -28,15 +28,15 @@ const { MOD, normName } = D;
 const T = globalThis.AxecleftTreasure;
 
 const SETTINGS = {
-  potionLevel: { name: "Highest potion level (GM)", hint: "SRD: potions and psionic tattoos hold 3rd-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 3rd.", type: Number, default: 3, range: { min: 3, max: 9, step: 1 } },
-  wandLevel: { name: "Highest wand level (GM)", hint: "SRD: wands and dorjes hold 4th-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 4th.", type: Number, default: 4, range: { min: 4, max: 9, step: 1 } },
-  psionicShare: { name: "Psionic share of potions, scrolls, wands, staffs and wondrous items (%)", hint: "House rule, while Psionics is on (Treasure Generator → Generation settings): this share of random potion, scroll and wand rolls become psionic tattoos, power stones and dorjes; of staff rolls, SRD psicrowns; of wondrous item rolls, cognizance crystals and psionic universal items. 0 = none.", type: Number, default: 10, range: { min: 0, max: 100, step: 5 } },
+  potionLevel: { name: /*t*/"Highest potion level (GM)", hint: /*t*/"SRD: potions and psionic tattoos hold 3rd-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 3rd.", type: Number, default: 3, range: { min: 3, max: 9, step: 1 } },
+  wandLevel: { name: /*t*/"Highest wand level (GM)", hint: /*t*/"SRD: wands and dorjes hold 4th-level spells or powers or lower. The GM may raise this to 9th for items made on the Curios tab. Random treasure follows the SRD tables. Players' crafting always stays at 4th.", type: Number, default: 4, range: { min: 4, max: 9, step: 1 } },
+  psionicShare: { name: /*t*/"Psionic share of potions, scrolls, wands, staffs and wondrous items (%)", hint: /*t*/"House rule, while Psionics is on (Treasure Generator → Generation settings): this share of random potion, scroll and wand rolls become psionic tattoos, power stones and dorjes; of staff rolls, SRD psicrowns; of wondrous item rolls, cognizance crystals and psionic universal items. 0 = none.", type: Number, default: 10, range: { min: 0, max: 100, step: 5 } },
   ...PEARL_SETTINGS,
-  psicrownSetup: { name: "Set up psicrowns", hint: "A psicrown added to a character from a compendium (D35E's Dominator, Evader…) gets its power points and its powers as separate items that spend the crown's points.", type: Boolean, default: true },
-  preferModules: { name: "Prefer module compendiums", hint: "When a spell, power or item is in both D35E's compendiums and a module's (such as Axecleft's Shared Data), use the module's copy.", type: Boolean, default: true },
-  adoptLinks: { name: "Take over hand-made linked items", hint: "A spellbook or scroll you linked by hand on D35E's Links tab: when it is added to a character, Curios keeps a copy of its contents so used scrolls stay used when it changes hands.", type: Boolean, default: true },
-  bookRestriction: { name: "Spellbook rule", hint: "Optional: characters whose spellbook class is listed below can only prepare spells found in a spellbook item they carry (Read Magic is always allowed, as in the SRD). The GM is warned but not stopped.", type: Boolean, default: false },
-  bookClasses: { name: "Spellbook classes", hint: "Classes the spellbook rule applies to, separated by commas.", type: String, default: "Wizard" },
+  psicrownSetup: { name: /*t*/"Set up psicrowns", hint: /*t*/"A psicrown added to a character from a compendium (D35E's Dominator, Evader…) gets its power points and its powers as separate items that spend the crown's points.", type: Boolean, default: true },
+  preferModules: { name: /*t*/"Prefer module compendiums", hint: /*t*/"When a spell, power or item is in both D35E's compendiums and a module's (such as Axecleft's Shared Data), use the module's copy.", type: Boolean, default: true },
+  adoptLinks: { name: /*t*/"Take over hand-made linked items", hint: /*t*/"A spellbook or scroll you linked by hand on D35E's Links tab: when it is added to a character, Curios keeps a copy of its contents so used scrolls stay used when it changes hands.", type: Boolean, default: true },
+  bookRestriction: { name: /*t*/"Spellbook rule", hint: /*t*/"Optional: characters whose spellbook class is listed below can only prepare spells found in a spellbook item they carry (Read Magic is always allowed, as in the SRD). The GM is warned but not stopped.", type: Boolean, default: false },
+  bookClasses: { name: /*t*/"Spellbook classes", hint: /*t*/"Classes the spellbook rule applies to, separated by commas.", type: String, default: "Wizard" },
 };
 
 const api = {
@@ -63,7 +63,7 @@ const api = {
   async psicrown(name, opts = {}) {
     await api.loaded;
     const row = crownRow(api, name);
-    if (!row) throw new Error(`${name} is not an SRD psicrown (${(api.data.tables.psicrowns ?? []).map((r) => r.name).join(", ")}).`);
+    if (!row) throw new Error(D.t("{name} is not an SRD psicrown ({list}).", { name, list: (api.data.tables.psicrowns ?? []).map((r) => r.name).join(", ") }));
     return (await makeCrown(api, row, opts)).data;
   },
   async customPsicrown(spec) { await api.loaded; return (await customCrown(api, spec)).data; },
@@ -72,15 +72,15 @@ const api = {
 
 if (T?.registerSourceKind) {
   T.registerSourceKind({
-    module: MOD, key: "spells", label: "Spells",
-    hint: "Spells that potions, scrolls, wands and spellbooks are made from. D35E's Spells compendium and any compendium of spells, such as Axecleft's Shared Data.",
+    module: MOD, key: "spells", label: /*t*/"Spells",
+    hint: /*t*/"Spells that potions, scrolls, wands and spellbooks are made from. D35E's Spells compendium and any compendium of spells, such as Axecleft's Shared Data.",
     match: (label) => /\bspells?\b/i.test(label) && !/spell[- ]like|spell items|schools?|domains?/i.test(label),
     accept: (e) => e.type === "spell" && e.system?.isPower !== true,
     fields: ["system.level", "system.learnedAt", "system.isPower", "system.range.units", "system.school", "system.target"],
   });
   T.registerSourceKind({
-    module: MOD, key: "powers", label: "Psionic powers",
-    hint: "Powers that psionic tattoos, power stones and dorjes are made from. D35E's Powers compendium and any compendium of powers.",
+    module: MOD, key: "powers", label: /*t*/"Psionic powers",
+    hint: /*t*/"Powers that psionic tattoos, power stones and dorjes are made from. D35E's Powers compendium and any compendium of powers.",
     match: (label) => /\bpowers?\b/i.test(label) && !/intelligent/i.test(label),
     accept: (e) => e.type === "spell" && e.system?.isPower === true,
     fields: ["system.level", "system.learnedAt", "system.isPower", "system.range.units", "system.school", "system.target"],
@@ -90,7 +90,7 @@ if (T?.registerSourceKind) {
     categories: Object.keys(CATS),
     async roll({ category, grade, tags = [], merchant = false, epic = false, exclude = null }) {
       await api.loaded;
-      if (!api.generator) throw new Error("curios.json did not load");
+      if (!api.generator) throw new Error(D.t("curios.json did not load"));
       return api.generator.generate(category, { grade: grade ?? "minor", tags, unidentified: !merchant, epic, exclude });
     },
   });
@@ -100,7 +100,7 @@ if (T?.registerSourceKind) {
 }
 
 globalThis.AxecleftMerchants?.registerMerchantType?.({
-  module: MOD, key: "psionic", label: "Psionic emporium", trade: "Crystals", nouns: ["Crystal", "Mind", "Eye", "Lotus", "Prism"], needs: "psionics", tags: ["psionic"],
+  module: MOD, key: "psionic", label: /*t*/"Psionic emporium", trade: "Crystals", nouns: ["Crystal", "Mind", "Eye", "Lotus", "Prism"], needs: "psionics", tags: ["psionic"],
   categories: { "magic:potion": 3, "magic:scroll": 3, "magic:wand": 2, "magic:wondrous": 2, "magic:staff": 1, "magic:weapon": 1, "magic:armor": 1 },
 });
 
