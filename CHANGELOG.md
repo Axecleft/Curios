@@ -1,4 +1,68 @@
 # Axecleft's Curios — changelog
+## 1.14.9.24
+
+- Ships Axecleft's Tools 9.2: the User Guide button opens the Tool Suite's wiki in Foundry's language: French, Spanish, Brazilian Portuguese or European Portuguese when you play in one of them, English otherwise.
+
+## 1.14.9.23
+
+- Ships Axecleft's Tools 9.1: a User Guide button at the end of the Axecleft's Tools toolbar group (and menu), for GMs and players. It opens the Tool Suite's wiki (https://github.com/Axecleft/Axecleft-s-Tools-Suite/wiki/Home) in your web browser.
+
+## 1.14.9.22
+
+- Ships the Crafting engine 1.94: crafting time estimates use each skill's full bonus, as the character sheet shows it.
+
+## 1.14.9.21
+
+- Ships the Crafting engine 1.93: a Craft check's weekly progress can be counted in another coin (used by Traps' trap kits).
+
+## 1.14.9.20
+
+- Spell picker, spellbooks: choosing a class in the picker's list sets the Spellbook class to it, so the spells go into that class's spellbook. Typing another class in Spellbook class sets the picker back to "The spellbook class".
+
+## 1.14.9.19
+
+- Spells in several compendiums now have their class lists merged. A copy that lists only some classes (Axecleft's Shared Data, imported from eTools, lists Cure Light Wounds for the Healer, Adept and others but not the Cleric, Bard or Druid) was preferred over D35E's and had no SRD level, so the cure spells were missing from the spell picker and couldn't be made. A spell that is only on other classes' lists (from a supplement) now uses the lowest level it has on any list.
+
+## 1.14.9.18
+
+- Spell picker on the Treasure Generator's Curios tab and the Crafting window's "Scrolls, potions, wands" tab: every spell (or power) in your sources, grouped by level in groups that open and close, with a search box and a choice of list (the item's own rule, arcane, divine or one class). Pick a spell, set the caster level and tick metamagic, then Add to item; the item's spells are listed with ✕ to remove them. Only spells the item can hold are offered (potions up to 3rd level and no personal or area spells, wands up to 4th…), counting the metamagic. The Spells box stays, and typing still works.
+- The Curios tab now takes metamagic too ("Fireball @10 +empower"), priced by the effective spell level, as crafting does.
+
+## 1.14.9.17
+
+- Ships the Treasure Generator 9.98: a cursed item that sheds light keeps its own light until the curse is active ("Curse Active" ticked); only then does it glow with the curse's eerie light, and unticking it brings its own light back. Before, the eerie light was there from the start and gave the curse away. The eerie lights now use animations from D35E's item sheet, so saving the sheet no longer clears the animation.
+
+## 1.14.9.16
+
+- Ships the Treasure Generator 9.97: custom curses on a "Custom Curses" page of the Treasure Lists journal (your own curses, drawbacks, situations and specific cursed items, with weights, the items they fit and buff penalties); the SRD's curses can be switched off one by one.
+
+## 1.14.9.15
+
+- Crafting a specific magic item (Rings, rods, staffs, wondrous / Specific magic arms): the caster level needed is never lower than the minimum caster level that can cast the item's required spells (SRD), e.g. Ring Gates needs 17 for gate. The window says which spell sets it.
+- Ships Crafting 1.92: a staff (or, for powers, a psicrown) can supply a spell; scrolls and wands name their psionic equivalents (power stone, dorje).
+
+## 1.14.9.14
+
+- Ships the Treasure Generator 9.96: cursed items (SRD tables; Generation settings: a flat rate, 1% by default, or by grade, 3% / 2% / 1%), with D35E's Cursed mark, buffs for active curses and an eerie light on cursed items that shed light.
+- New compendium "Common Buffs" (GM only): every curse in the SRD tables as a buff, in folders (item curses, intermittent functioning, drawbacks, psionic item curses), with penalties where the SRD gives numbers. Cursed items link their buff in the identified description.
+- The Workshop has a "Cursed" choice: no curse, a random SRD curse, or a chosen kind.
+
+## 1.14.9.13
+
+- The crafting window's caster-level reason for an intelligent item now reads "an intelligent item (caster level 15)" instead of "an intelligent item 15"; the number is filled in by the code, so translations keep the {n} placeholder (French: "un objet intelligent (NLS {n})").
+- French words: Gilgalad's corrections to the Words tab are applied (Improved and Greater armor abilities in the right order, base ammunition named in the plural, shop words, gems, art objects and materials).
+- "Heightened" in scroll, potion and wand names is now a word like the other metamagic words, so other languages can make it agree (French: "Potion de Soins légers intensifiée (niveau 2)"); English names are unchanged.
+
+## 1.14.9.12
+
+- Ships Axecleft's Tools 9.0, Treasure Generator 9.95, Merchant Generator 7.9, Crafting 1.91: the same scripts now run on Foundry v11 too (the Foundry v11 build of this module is 1.11 instead of 1.14). On v11, windows and dialogs use Foundry's classic ones; nothing changes on v13/v14.
+- Intelligent items are offered only when the D35E system supports them (3.1.0 or later); with older D35E versions the Intelligent options are hidden.
+
+## 1.14.9.11
+
+- French draft, second pass: Gigalad's terminology corrections are applied (weapon and armor abilities, bane foes, metamagic words, item grades Faible/Puissant, Pierre psionique, Biens précieux, Token, Améliorer, Objet spécial, Grimoire).
+- Ships the Merchant Generator 7.8: shop-name words have their own lines in the word files (Shop: Anvil, Shop: Shadow), so a shop word can differ from the same English word in item names. English shop names are unchanged.
+
 ## 1.14.9.10
 
 - French draft: lang/fr.json (buttons, menus, hints, messages and name patterns) and lang/fr.words.json (the words in item and shop names, with their genders) are filled in, and languages.json now lists fr, so worlds set to French show this module in French. A first draft for Gigalad to correct; English worlds are unchanged.

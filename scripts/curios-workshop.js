@@ -10,6 +10,8 @@ import { makeMaster, makeBook } from "./curios-links.js";
 import { CATS, maybeIntelligent } from "./curios-generate.js";
 import { maybeLight } from "./curios-light.js";
 import { makeCrystal, makeCrown, customCrown, CRYSTAL_SIZES, crystalPrice } from "./curios-psionic.js";
+import { SpellPicker, parseSpellBox } from "./curios-picker.js";
+import { METAMAGIC } from "./curios-consumables.js";
 
 const T = () => globalThis.AxecleftTreasure;
 const { MOD, KINDS, normName } = D;
@@ -30,7 +32,7 @@ const MAKES = [
 ];
 
 export class CuriosWorkshop {
-  constructor(api) { this.api = api; this.itemList = null; }
+  constructor(api) { this.api = api; this.itemList = null; this.picker = new SpellPicker(api); }
 
   async prepare() {
     // Names for the specific-item list, filtered by the campaign switches
@@ -59,6 +61,7 @@ export class CuriosWorkshop {
     return `<p class="hint">${H(r.psionics ? "Make potions, scrolls, wands and spellbooks from any spell in your Spell sources, and psionic tattoos, power stones and dorjes from your Power sources. Prices follow the SRD; treasure starts unidentified." : "Make potions, scrolls, wands and spellbooks from any spell in your Spell sources. Prices follow the SRD; treasure starts unidentified.")}</p>
       <div class="form-group">${L("Make")}<select name="cw.make">${makes.map(([k, l]) => opt(k, t(l), make)).join("")}</select></div>
       <div class="form-group" data-cw="spells"><label data-cw-label>${H("Spells")}</label><textarea name="cw.spells" rows="4" placeholder="${H("One per line. Add @ and a caster level to raise it: Fireball @10")}">${esc(recall("spells", ""))}</textarea></div>
+      <div data-cw="spells">${this.picker.html()}</div>
       <div class="form-group" data-cw="list">${L("Scroll type")}<select name="cw.list">${opt("", t("Arcane if the spell is arcane, else divine"), recall("list", ""))}${opt("arcane", t("Arcane"), recall("list", ""))}${opt("divine", t("Divine"), recall("list", ""))}</select></div>
       <div class="form-group" data-cw="cl">${L("Caster level")}<input type="number" name="cw.cl" min="1" max="40" value="${esc(recall("cl", ""))}" placeholder="${H("minimum")}">${hint("blank: the lowest that can cast it")}</div>
       <div class="form-group" data-cw="book">${L("Spells")}<select name="cw.bookMode">${opt("listed", t("The spells I list"), recall("bookMode", "listed"))}${opt("random", t("Random spells"), recall("bookMode", "listed"))}</select></div>
@@ -70,6 +73,7 @@ export class CuriosWorkshop {
       <div class="form-group" data-cw="crown">${L("Psicrown")}<select name="cw.crown">${(this.api.data?.tables?.psicrowns ?? []).map((r) => opt(r.name, `${r.name}${r.artifact ? ` ${t("(artifact)")}` : ""}: ${r.pp} PP, ${t("ML {n}", { n: r.ml })}${r.price ? `, ${gp(r.price)}` : ""}`, recall("crown", "Dominator"))).join("")}${opt("custom", t("Custom: the powers I list"), recall("crown", "Dominator"))}</select></div>
       <div class="form-group" data-cw="light">${L("Sheds light")}<select name="cw.light">${opt("settings", t("By Generation settings (random)"), recall("light", "settings"))}${opt("none", t("No"), recall("light", "settings"))}${opt("on", t("Yes"), recall("light", "settings"))}</select>${hint("rings, rods, staffs and wondrous items; look from the item's school of magic")}</div>
       <div class="form-group" data-cw="light">${L("Intelligent")}<select name="cw.intel">${opt("settings", t("By Generation settings (random)"), recall("intel", "settings"))}${opt("none", t("No"), recall("intel", "settings"))}${opt("on", t("Yes (roll its mind and powers)"), recall("intel", "settings"))}</select></div>
+      ${T()?.curseField?.("cw.cursed") ?? ""}
       <div class="form-group" data-cw="random">${L("Category")}<select name="cw.cat">${Object.keys(CATS).map((c) => opt(c, t(T()?.CATEGORIES?.[c]?.label ?? c), recall("cat", "magic:wondrous"))).join("")}</select>
         <select name="cw.grade">${["minor", "medium", "major"].map((g) => opt(g, t(g[0].toUpperCase() + g.slice(1)), recall("grade", "medium"))).join("")}</select></div>
       <div class="form-group">${L("How many")}<input type="number" name="cw.count" min="1" max="20" value="${esc(recall("count", "1"))}"><label class="atg-cb" style="flex:1"><input type="checkbox" name="cw.unid" ${recall("unid", "1") === "1" ? "checked" : ""}> ${H("Unidentified")}</label></div>
@@ -95,7 +99,7 @@ export class CuriosWorkshop {
       });
       const lab = section.querySelector("[data-cw-label]");
       if (lab) lab.textContent = psi ? t("Powers") : t("Spells");
-      section.querySelector("[name='cw.spells']").placeholder = custom ? t("One power per line. The manifester level below (blank: the lowest, at least 8th). Price by the SRD staff formula (house rule).") : m === "book" ? (el("bookMode")?.value === "random" ? t("Optional: spells that must be in the book, one per line; random ones fill the rest") : t("One spell per line")) : psi ? t("One per line. Add @ and a manifester level to raise it: Energy Ray @7") : t("One per line. Add @ and a caster level to raise it: Fireball @10");
+      section.querySelector("[name='cw.spells']").placeholder = custom ? t("One power per line. The manifester level below (blank: the lowest, at least 8th). Price by the SRD staff formula (house rule).") : m === "book" ? (el("bookMode")?.value === "random" ? t("Optional: spells that must be in the book, one per line; random ones fill the rest") : t("One spell per line")) : psi ? t("One per line. Add @ and a manifester level to raise it: Energy Ray @7") : t("One per line. Add @ and a caster level to raise it, and + for metamagic: Fireball @10 +empower");
       T()?.refreshSize?.();
     };
     section.addEventListener("change", (ev) => {
@@ -110,14 +114,24 @@ export class CuriosWorkshop {
     section.querySelector("[name='cw.spells']")?.addEventListener("input", (ev) => remember("spells", ev.target.value));
     show();
     this.check(section);
+    // The spell picker (1.14.9.18): lists of spells by level, caster level and metamagic, added to the Spells box
+    const el2 = (n) => section.querySelector(`[name="cw.${n}"]`);
+    this.picker.wire(section, {
+      box: el2("spells"),
+      state: () => {
+        const m = el2("make").value, custom = m === "psicrown" && el2("crown")?.value === "custom";
+        const kind = custom ? "powerstone" : m === "book" ? "book" : ({ master: "scroll", pmaster: "powerstone" }[m] ?? m);
+        return { kind, list: el2("list")?.value || null, cls: el2("cls")?.value, many: ["master", "pmaster", "book"].includes(m) || custom, cl: !custom && m !== "book", gm: true, force: !!el2("force")?.checked };
+      },
+      // Filtering a spellbook's spells by a class sets the Spellbook class
+      onClass: (c) => { const box = el2("cls"); if (box && box.value !== c) { box.value = c; box.dispatchEvent(new Event("change", { bubbles: true })); } },
+    }).catch((e) => console.error("Curios | spell picker", e));
   }
 
   read(section) {
     const v = (n) => section.querySelector(`[name="cw.${n}"]`)?.value ?? "";
-    const lines = v("spells").split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => {
-      const m = s.match(/^(.*?)\s*@\s*(\d+)\s*$/);
-      return m ? { name: m[1].trim(), cl: Number(m[2]) } : { name: s, cl: null };
-    });
+    // "Fireball @10 +empower": caster level after @, metamagic after + (1.14.9.18: metamagic here too, as in crafting)
+    const lines = parseSpellBox(v("spells"));
     return { make: v("make"), lines, list: v("list") || null, cl: Number(v("cl")) || null, cls: v("cls").trim() || "Wizard", item: v("item").trim(),
       bookMode: v("bookMode") || "listed", bookMax: Math.max(0, Math.min(9, Number(v("bookMax")) || 0)), bookCount: Math.max(1, Math.min(100, Number(v("bookCount")) || 1)),
       pp: Number(v("pp")) || 1, charged: !!section.querySelector('[name="cw.charged"]')?.checked, crown: v("crown") || "Dominator",
@@ -135,11 +149,15 @@ export class CuriosWorkshop {
     const bits = [];
     for (const l of f.lines.slice(0, 12)) {
       const hit = await this.api.spells.find(l.name, { power: f.make !== "book" && KINDS[kind]?.psionic });
+      if (l.error) { bits.push(`✘ ${l.text}: ${l.error}`); continue; }
       if (!hit) { bits.push(`✘ ${l.name}: ${t("not found")}`); continue; }
       if (f.make === "book") { const lv = hit.facts.arcane ?? hit.facts.level; { const pg = Math.max(1, Number(lv) || 0); bits.push(`✔ ${hit.name} (${t(pg === 1 ? "level {lv}, {n} page" : "level {lv}, {n} pages", { lv: lv ?? "?", n: pg })})`); }; continue; }
       const level = hit.facts.isPower ? hit.facts.psionic : kind === "scroll" ? ((f.list === "divine" ? hit.facts.divine : f.list === "arcane" ? hit.facts.arcane : hit.facts.arcane ?? hit.facts.divine)) : hit.facts.level;
-      const p = this.api.spells.problems(hit.facts, kind, level ?? 0);
-      bits.push(`${p.length ? "✘" : "✔"} ${hit.name} (${t("level {lv}", { lv: level ?? "?" })})${p.length ? `: ${p.join(" ")}` : ""}`);
+      // With metamagic: the effective level counts for the item's limits
+      const mm = KINDS[kind]?.psionic ? [] : l.metamagic ?? [];
+      const eff = (Math.max(level ?? 0, ...mm.filter((x) => x.key === "heighten").map((x) => Number(x.to) || 0))) + mm.reduce((a, x) => a + (METAMAGIC[x.key]?.adj ?? 0), 0);
+      const p = f.force ? [] : this.api.spells.problems(hit.facts, kind, eff);
+      bits.push(`${p.length ? "✘" : "✔"} ${hit.display ?? hit.name} (${t("level {lv}", { lv: level ?? "?" })}${eff !== level ? `, ${t("as {n} with metamagic", { n: D.ord(eff) })}` : ""})${p.length ? `: ${p.join(" ")}` : ""}`);
     }
     out.textContent = bits.join(" · ");
   }
@@ -180,7 +198,8 @@ export class CuriosWorkshop {
     const kind = { master: "scroll", pmaster: "powerstone" }[f.make] ?? f.make;
     const made = [];
     for (const l of (f.make === "master" || f.make === "pmaster") ? f.lines : f.lines.slice(0, 1)) {
-      made.push(await this.api.spells.make({ name: l.name, kind, cl: l.cl ?? f.cl, list: f.list, gm: true, force: f.force, unidentified: f.unid && made.length === 0 && f.make !== "master" && f.make !== "pmaster" }));
+      if (l.error) throw new Error(l.error);
+      made.push(await this.api.spells.make({ name: l.name, kind, cl: l.cl ?? f.cl, list: f.list, gm: true, force: f.force, metamagic: l.metamagic, unidentified: f.unid && made.length === 0 && f.make !== "master" && f.make !== "pmaster" }));
     }
     if (f.make === "master" || f.make === "pmaster") {
       const data = makeMaster(kind, made, { unidentified: f.unid });
@@ -242,7 +261,10 @@ export class CuriosWorkshop {
     const f = this.read(section);
     const entries = [];
     for (let i = 0; i < f.count; i++) entries.push(await this.makeOne(f));
-    return { entries, note: f.count > 1 ? t("{n} items from the Workshop", { n: f.count }) : "" };
+    // Treasure Generator 9.96: an SRD curse when the GM asks for one
+    const cursed = section.querySelector?.('[name="cw.cursed"]')?.value ?? "none";
+    const made = (await T()?.curseEntries?.(entries, cursed)) ?? entries;
+    return { entries: made, note: f.count > 1 ? t("{n} items from the Workshop", { n: f.count }) : "" };
   }
 }
 

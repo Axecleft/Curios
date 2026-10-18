@@ -248,7 +248,7 @@ const PP_PATH = (key) => `system.attributes.spells.spellbooks.${key}.powerPoints
 const psiBooks = (actor) => D.spellbooksOf(actor).filter((b) => b.usePowerPoints);
 const ownPowers = (actor) => (actor?.items ?? []).filter((i) => i.type === "spell" && actor.system?.attributes?.spells?.spellbooks?.[i.system?.spellbook]?.usePowerPoints)
   .sort((a, b) => (Number(a.system?.level) || 0) - (Number(b.system?.level) || 0) || a.name.localeCompare(b.name));
-const DialogV2 = () => foundry.applications?.api?.DialogV2;
+const DialogV2 = () => globalThis.AxecleftTools?.DialogV2 ?? foundry.applications?.api?.DialogV2;
 
 async function say(actor, html) {
   try { await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: html }); } catch (e) { /* no chat */ }

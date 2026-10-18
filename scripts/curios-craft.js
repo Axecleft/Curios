@@ -20,7 +20,8 @@
  */
 import * as D from "./curios-d35e.js";
 import { makeMaster } from "./curios-links.js";
-import { METAMAGIC, metamagicKey } from "./curios-consumables.js";
+import { METAMAGIC } from "./curios-consumables.js";
+import { SpellPicker, parseSpellBox } from "./curios-picker.js";
 import * as LOCAL from "./curios-prereqs.js";
 import { applyLight, rollLight } from "./curios-light.js";
 import { makeCrystal, makeCrown, customCrown, crownRow, CRYSTAL_SIZES, crystalPrice } from "./curios-psionic.js";
@@ -55,7 +56,7 @@ const spellHint = (k) => {
 const MM_WORDS = ["empower", "enlarge", "extend", "heighten 7", "maximize", "quicken", "silent", "still", "widen"];
 
 export class CuriosCraft {
-  constructor(api) { this.api = api; }
+  constructor(api) { this.api = api; this.picker = new SpellPicker(api); }
 
   async prepare() { await this.api.loaded; await this.api.spells.index(); }
 
@@ -79,6 +80,7 @@ export class CuriosCraft {
     return `<p class="hint">${H(psi ? "Scrolls, potions and wands, and power stones, psionic tattoos and dorjes, by the SRD: supplies cost ½ of the base price and the XP 1/25 of it. You must provide each spell: prepared or known, or from a helping caster, a scroll or a wand (one per day of work)." : "Scrolls, potions and wands, by the SRD: supplies cost ½ of the base price and the XP 1/25 of it. You must provide each spell: prepared or known, or from a helping caster, a scroll or a wand (one per day of work).")}</p>
       <div class="form-group"><label>${H("Item")}</label><select name="craft.item">${kinds.map(([k, c]) => opt(k, `${t(c.label)} (${c.feat})`, item)).join("")}</select></div>
       <div class="form-group"><label data-cc="what">${H(CRAFT[item]?.psionic ? "Powers" : "Spells")}</label><textarea name="craft.spells" rows="3" placeholder="${esc(spellHint(item))}">${esc(v.spells ?? "")}</textarea></div>
+      ${this.picker.html()}
       <p class="hint" data-cc="mm">${H("Metamagic (spells): add {list} after the spell. Each raises its effective level (price and minimum caster level); you need the feat.", { list: "{list}" }).replace("{list}", mm)} ${H(T()?.rules?.()?.epic ? "Past 9th level or caster level 20 the item is epic: scrolls up to 19th level, caster level up to 30 (Scribe Epic Scroll); potions and wands keep their level limit but can go past caster level 20." : "Potions stay at 3rd level, wands at 4th and scrolls at 9th, counting the metamagic.")}</p>
       <div class="form-group" data-cc="list"><label>${H("Scroll type")}</label><select name="craft.list">${opt("", t("As the crafter casts it"), v.list)}${opt("arcane", t("Arcane"), v.list)}${opt("divine", t("Divine"), v.list)}</select></div>
       <div class="form-group"><label>${H("Caster level")}</label><input type="number" name="craft.cl" min="1" max="40" value="${esc(v.cl ?? "")}" placeholder="${H("minimum")}"><span class="hint" style="flex:1">${H("blank: the lowest that can cast it; no higher than your own")}</span></div>
@@ -99,6 +101,12 @@ export class CuriosCraft {
     };
     section.querySelector('[name="craft.item"]')?.addEventListener("change", show);
     show();
+    // The spell picker (1.14.9.18): lists of spells by level, caster level and metamagic, added to the Spells box
+    const q = (n) => section.querySelector(`[name="craft.${n}"]`);
+    this.picker.wire(section, {
+      box: q("spells"),
+      state: () => { const k = q("item")?.value ?? "scroll"; return { kind: k, list: k === "scroll" ? q("list")?.value || null : null, many: !!CRAFT[k]?.many, cl: true, gm: !!game.user?.isGM, force: false }; },
+    }).catch((e) => console.error("Curios | spell picker", e));
   }
 
   async evaluate({ actor, values: v }) {
@@ -107,17 +115,9 @@ export class CuriosCraft {
     const c = CRAFT[kind];
     if (c.psionic && T()?.rules?.()?.psionics === false) throw new Error(t("Psionics is off in this world."));
     // "Fireball @25 +maximize +quicken +heighten 9": caster level after @, metamagic after + (heighten takes the level)
-    const lines = String(v.spells ?? "").split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => {
-      const metamagic = [];
-      let rest = s.replace(/\+\s*([a-z ]+?)(?:\s+(\d+)(?:st|nd|rd|th)?)?(?=\s*(?:\+|@|$))/gi, (all, word, to) => {
-        const key = metamagicKey(word.trim());
-        if (!key) throw new Error(t("\"{word}\" isn't a metamagic feat Curios knows (empower, enlarge, extend, heighten N, maximize, quicken, silent, still, widen).", { word: word.trim() }));
-        metamagic.push({ key, to: to ? Number(to) : null });
-        return "";
-      }).trim();
-      const m = rest.match(/^(.*?)\s*@\s*(\d+)\s*$/);
-      return m ? { name: m[1].trim(), cl: Number(m[2]), metamagic } : { name: rest, cl: null, metamagic };
-    });
+    const lines = parseSpellBox(v.spells);
+    const bad = lines.find((l) => l.error);
+    if (bad) throw new Error(bad.error);
     if (!lines.length) throw new Error(t(c.psionic ? "Type the power to put in the {item}." : "Type the spell to put in the {item}.", { item: t(c.label).toLowerCase() }));
     if (!c.many && lines.length > 1) throw new Error(t(c.psionic ? "A {item} holds one power." : "A {item} holds one spell.", { item: t(c.label).toLowerCase() }));
     const gm = !!game.user?.isGM; // the GM's higher potion and wand limits apply only to the GM's own crafting
@@ -210,7 +210,7 @@ export class CuriosItemCraft {
     return `<p class="hint">${H(psi ? "Rings, rods, staffs and wondrous items (and psionic universal items) from your item compendiums, by the SRD: the base price is the market price; supplies cost half of it and the XP is 1/25. The prerequisites come from the item's own construction line." : "Rings, rods, staffs and wondrous items from your item compendiums, by the SRD: the base price is the market price; supplies cost half of it and the XP is 1/25. The prerequisites come from the item's own construction line.")}${T()?.rules?.()?.epic ? ` ${H("Epic items are listed while Epic items is on.")}` : ""}</p>
       <div class="form-group"><label>${H("Kind")}</label><select name="craft.group">${groups.map(([k, l, f]) => opt(k, `${t(l)} (${f})`, g)).join("")}</select></div>
       <div class="form-group"><label>${H("Item")}</label><input type="text" name="craft.name" list="cc-items" value="${esc(v.name ?? "")}" placeholder="${H("Type to search")}"><datalist id="cc-items"></datalist></div>
-      <div class="form-group"><label>${H("Intelligent")}</label><label class="acr-cb" style="flex:1"><input type="checkbox" name="craft.intel" ${v.intel ? "checked" : ""}> ${H("Make it intelligent (SRD: caster level 15; it takes your alignment; its mind and powers are rolled when the GM approves, and their price is added)")}</label></div>
+      ${this.api.intelligence ? `<div class="form-group"><label>${H("Intelligent")}</label><label class="acr-cb" style="flex:1"><input type="checkbox" name="craft.intel" ${v.intel ? "checked" : ""}> ${H("Make it intelligent (SRD: caster level 15; it takes your alignment; its mind and powers are rolled when the GM approves, and their price is added)")}</label></div>` : ""}
       <div class="form-group"><label>${H("Sheds light")}</label><select name="craft.light">${opt("none", t("No"), v.light)}${opt("on", t("Yes"), v.light)}</select><span class="hint" style="flex:1">${H("the creator decides now (as the SRD says for arms and armor); its look follows the item's school of magic")}</span></div>
       ${globalThis.AxecleftCrafting?.prereqHelp?.("items") ?? ""}`;
   }
@@ -324,7 +324,10 @@ export class CuriosItemCraft {
     for (const f of creation) { const m = CREATION_FEATS[normName(f)]; if (m > cl) { cl = m; why.push(`${f} ${m}`); } }
     if (pre.minCl && pre.minCl > cl) { cl = pre.minCl; why.push(t("the item needs {n}", { n: pre.minCl })); }
     if (pre.factor && bonus && pre.factor * bonus > cl) { cl = pre.factor * bonus; why.push(`${pre.factor} × +${bonus}`); }
-    if (intelCl > cl) { cl = intelCl; why.push(t("an intelligent item 15")); }
+    // SRD: never lower than the minimum caster level that can cast the required spells (gate: 17)
+    const sp = await this.api.spells.minClOfGroups?.(pre.spells).catch(() => null);
+    if (sp && sp.cl > cl) { cl = sp.cl; why.push(t("{spell} needs caster level {n}", { spell: this.api.spells.shownName?.(sp.spell) ?? sp.spell, n: sp.cl })); }
+    if (intelCl > cl) { cl = intelCl; why.push(t("an intelligent item (caster level {n})", { n: intelCl })); }
     plan.casterLevel = cl;
     plan.casterNote = `${why.join("; ") || t("the feat's minimum")}${pre.cl ? t("; the item works at caster level {n}", { n: pre.cl }) : ""}`;
     for (const f of pre.feats) if (normName(f) !== normName(plan.feat)) {

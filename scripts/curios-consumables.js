@@ -23,7 +23,7 @@ export const METAMAGIC = {
   empower: { feat: /*t*/"Empower Spell", word: /*t*/"Empowered", adj: 2 },
   enlarge: { feat: /*t*/"Enlarge Spell", word: /*t*/"Enlarged", adj: 1 },
   extend: { feat: /*t*/"Extend Spell", word: /*t*/"Extended", adj: 1 },
-  heighten: { feat: /*t*/"Heighten Spell", word: "Heightened", adj: 0 },
+  heighten: { feat: /*t*/"Heighten Spell", word: /*t*/"Heightened", adj: 0 },
   maximize: { feat: /*t*/"Maximize Spell", word: /*t*/"Maximized", adj: 3 },
   quicken: { feat: /*t*/"Quicken Spell", word: /*t*/"Quickened", adj: 4 },
   silent: { feat: /*t*/"Silent Spell", word: /*t*/"Silent", adj: 1 },
@@ -57,6 +57,23 @@ export class CuriosSpells {
     const order = (list) => prefer ? [...list].sort((a, b) => Number(a.pack.startsWith("D35E.")) - Number(b.pack.startsWith("D35E."))) : list;
     for (const x of order(await (hub?.kindItems?.(`${MOD}.spells`, { force }) ?? []))) add(out.spells, x);
     for (const x of order(await (hub?.kindItems?.(`${MOD}.powers`, { force }) ?? []))) add(out.powers, x);
+    // The same spell in several compendiums (1.14.9.19): their class lists are merged, so a copy that lists only some
+    // classes (an eTools import lists the supplements' classes, not the Cleric's or the Wizard's) still has its SRD levels
+    for (const map of [out.spells, out.powers]) {
+      const groups = new Map(); // English name -> every copy
+      for (const hits of map.values()) for (const h of hits) { const k = normName(h.name); const g = groups.get(k) ?? groups.set(k, new Set()).get(k); g.add(h); }
+      for (const g of groups.values()) {
+        if (g.size < 2) continue;
+        const merged = new Map(); // class -> lowest level
+        for (const h of g) for (const [c, l] of h.facts.classes) if (Number.isFinite(l) && (!merged.has(normName(c)) || l < merged.get(normName(c))[1])) merged.set(normName(c), [c, l]);
+        const cls = [...merged.values()];
+        for (const h of g) {
+          if (cls.length === h.facts.classes.length) continue;
+          const e = h.entry ?? {}, sys = e.system ?? {};
+          h.facts = D.spellFacts({ ...e, system: { ...sys, learnedAt: { ...(sys.learnedAt ?? {}), class: cls } } });
+        }
+      }
+    }
     this.cache = out;
     return out;
   }
@@ -86,6 +103,24 @@ export class CuriosSpells {
     const map = power ? idx.powers : idx.spells;
     const n = normName(name);
     return map.get(n)?.[0] ?? map.get(n.replace(/\s*\(.*\)$/, ""))?.[0] ?? null;
+  }
+
+  /**
+   * SRD: an item's caster level is never lower than the minimum needed to cast its required spells (and never higher than
+   * the creator's own). groups: [["gate"], ["flame blade", "fireball"]] (one spell of each group) → { cl, spell } or null.
+   */
+  async minClOfGroups(groups) {
+    let best = null;
+    for (const g of groups ?? []) {
+      let low = null;
+      for (const name of g) {
+        const hit = (await this.find(name)) ?? (await this.find(name, { power: true }));
+        const cl = hit ? D.spellMinCl(hit.facts) : null;
+        if (cl != null && (low == null || cl < low.cl)) low = { cl, spell: hit.name };
+      }
+      if (low && (!best || low.cl > best.cl)) best = low;
+    }
+    return best;
   }
 
   /** Every spell or power of a level for a list ("arcane" | "divine" | "psionic"): [{ name, pack, id, facts }]. */
@@ -186,7 +221,13 @@ export class CuriosSpells {
     const price = Math.max(0.5, effLevel) * cl * k.mult + (comp.gp + comp.xp * 5) * per;
     data.system.price = price;
     const words = mm.map((x) => (x.key === "heighten" ? `Heightened (${D.ordEn(heightTo)})` : METAMAGIC[x.key].word));
-    const wordsShown = mm.map((x) => (x.key === "heighten" ? D.t("Heightened ({level})", { level: D.ord(heightTo) }) : D.W(METAMAGIC[x.key].word, D.t(METAMAGIC[x.key].word))));
+    // "Heightened" agrees like the other metamagic words; its level follows it ("Heightened (5th)", "intensifiée (niveau 5)")
+    const heightened = () => {
+      const w = D.W("Heightened", D.t("Heightened")), tail = D.t(" ({level})", { level: D.ord(heightTo), n: heightTo });
+      if (typeof w === "string") return w + tail;
+      return { ...w, text: w.text + tail, forms: w.forms ? Object.fromEntries(Object.entries(w.forms).map(([k, v]) => [k, v + tail])) : w.forms };
+    };
+    const wordsShown = mm.map((x) => (x.key === "heighten" ? heightened() : D.W(METAMAGIC[x.key].word, D.t(METAMAGIC[x.key].word))));
     // Oils: potions of spells cast on objects (bless weapon, magic vestment)
     const target = String(spell.system?.target?.value ?? spell.system?.target ?? "");
     // (the target text may be translated by Babele: French, Spanish and Portuguese words too)

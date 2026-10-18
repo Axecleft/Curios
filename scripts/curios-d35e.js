@@ -68,11 +68,13 @@ export function spellFacts(e) {
     return lv.length ? Math.min(...lv) : null;
   };
   const isPower = s.isPower === true;
+  const anyLowest = () => { const lv = classes.map(([, l]) => l).filter(Number.isFinite); return lv.length ? Math.min(...lv) : null; };
   const generic = Number.isFinite(Number(s.level)) ? Number(s.level) : null;
   return {
     name: e.name, isPower,
     // The level items use: a full caster's (wizard, sorcerer, cleric, druid) when it has one, as the SRD's prices do
-    level: isPower ? (lowest(PSIONIC) ?? generic) : (lowest(FULL) ?? lowest(ARCANE) ?? lowest(DIVINE) ?? generic),
+    // (1.14.9.19: a spell only on other classes' lists, from a supplement, uses the lowest level it has on any list)
+    level: isPower ? (lowest(PSIONIC) ?? generic) : (lowest(FULL) ?? lowest(ARCANE) ?? lowest(DIVINE) ?? generic ?? anyLowest()),
     // Scroll lists: a full caster's level first (a bard's or ranger's only when no full caster has the spell)
     arcane: lowest(["Wizard", "Sorcerer"]) ?? lowest(ARCANE), divine: lowest(["Cleric", "Druid"]) ?? lowest(DIVINE), psionic: isPower ? (lowest(PSIONIC) ?? generic) : null,
     personal: String(s.range?.units ?? "").toLowerCase() === "personal",
@@ -83,6 +85,23 @@ export function spellFacts(e) {
 
 /** The minimum caster (or manifester) level for a spell level: SRD wizard/cleric/psion progression. */
 export const minCasterLevel = (level) => (level <= 1 ? 1 : 2 * level - 1);
+
+/**
+ * The lowest caster (or manifester) level at which any class can cast a spell or manifest a power (SRD class tables):
+ * wizard, cleric, druid, psion 2 × level − 1; sorcerer and wilder 2 × level; bard and psychic warrior 1, 2/1, 4, 7, 10, 13, 16;
+ * paladin and ranger cast at half their class level (2, 4, 5, 7). Other classes fall back to 2 × level − 1.
+ */
+const FIRST_CL = {
+  wizard: (l) => minCasterLevel(l), cleric: (l) => minCasterLevel(l), druid: (l) => minCasterLevel(l), psion: (l) => minCasterLevel(l),
+  sorcerer: (l) => (l <= 1 ? 1 : 2 * l), wilder: (l) => (l <= 1 ? 1 : 2 * l),
+  bard: (l) => [1, 2, 4, 7, 10, 13, 16][l] ?? null, "psychic warrior": (l) => [1, 1, 4, 7, 10, 13, 16][l] ?? null,
+  paladin: (l) => [null, 2, 4, 5, 7][l] ?? null, ranger: (l) => [null, 2, 4, 5, 7][l] ?? null,
+};
+export function spellMinCl(facts) {
+  const cls = (facts?.classes ?? []).map(([c, l]) => FIRST_CL[String(c).toLowerCase()]?.(Number(l))).filter((x) => Number.isFinite(x));
+  if (cls.length) return Math.min(...cls);
+  return Number.isFinite(facts?.level) ? minCasterLevel(facts.level) : null;
+}
 
 /**
  * Costly material components and XP costs, from D35E's text: { gp, xp }.
@@ -110,7 +129,7 @@ let converter = undefined;
 async function d35eConverter() {
   if (converter !== undefined) return converter;
   try {
-    const path = foundry.utils.getRoute?.("systems/D35E/module/item/converters/consumable.js") ?? "/systems/D35E/module/item/converters/consumable.js";
+    const path = (foundry.utils.getRoute ?? globalThis.getRoute)?.("systems/D35E/module/item/converters/consumable.js") ?? "/systems/D35E/module/item/converters/consumable.js";
     converter = (await import(path)).ItemConsumableConverter ?? null;
   } catch (err) {
     console.warn(`${MOD} | D35E's consumable converter could not be loaded; using Curios' own`, err);
@@ -145,8 +164,12 @@ export async function toConsumable(spellData, kind, { cl, level, scrollType = ""
   let data;
   if (conv) {
     // The converter reads the spell level from learnedAt; give it the level we chose (arcane vs divine can differ)
-    const src = foundry.utils.deepClone(spellData);
+    const src = foundry.utils.deepClone(spellData?.toObject?.() ?? spellData);
     foundry.utils.setProperty(src, "system.learnedAt.class", [[scrollType === "divine" ? "Cleric" : kind === "powerstone" || kind === "tattoo" || kind === "dorje" ? "Psion" : "Wizard", level]]);
+    // D35E 2.4.3 (Foundry v11) still reads two values by their old pre-v10 path (data.damage.parts, data.measureTemplate)
+    // (always set: a document's deprecated .data getter would otherwise hide it), and expects attackCountFormula to be text
+    src.data = { damage: { parts: foundry.utils.deepClone(src.system?.damage?.parts ?? []) }, measureTemplate: foundry.utils.deepClone(src.system?.measureTemplate ?? {}) };
+    src.system.attackCountFormula ??= "";
     data = await conv.toConsumable(src, kind, cl, scrollType || undefined);
   } else data = plainConsumable(spellData, kind, cl, level);
   data.system ??= {};

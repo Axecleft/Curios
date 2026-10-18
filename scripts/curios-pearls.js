@@ -79,7 +79,7 @@ async function usePearl(api, actor, pearl) {
     const none = facts.two ? t("{item}: no prepared spell has been cast today", { item: pearl.name }) : t("{item}: no {level}-level prepared spell has been cast today", { item: pearl.name, level: th(facts.level) });
     return ui.notifications.info(`${none}${api.setting("pearlSpontaneous") ? t(" and no spell slot of that level is used") : ""}. ${t("(It recalls {what}.)", { what })}`);
   }
-  const DV = foundry.applications?.api?.DialogV2;
+  const DV = globalThis.AxecleftTools?.DialogV2 ?? foundry.applications?.api?.DialogV2;
   const label = (c) => (c.kind === "spell" ? `${c.item.name} (${th(c.level)}, ${c.book})` : t("A {level}-level spell slot ({book}, spontaneous: house rule)", { level: th(c.level), book: c.book }));
   const content = `<p>${esc(t("{item} recalls {what}: a spell prepared and cast today is prepared again.", { item: pearl.name, what }))}</p>
     <div class="form-group"><label>${esc(t("Recall"))}</label><select name="pick">${list.map((c, i) => `<option value="${i}">${esc(label(c))}</option>`).join("")}</select></div>`;

@@ -114,7 +114,8 @@ Hooks.once("init", () => {
   for (const [k, def] of Object.entries(SETTINGS)) game.settings.register(MOD, k, { scope: "world", config: true, ...def });
   api.spells = new CuriosSpells(api);
   api.generator = new CuriosGenerator(api);
-  api.intelligence = new CuriosIntelligence(api);
+  // Intelligent items need D35E 3.1.0 or later (Foundry v11's D35E 2.4.3 has none)
+  api.intelligence = globalThis.AxecleftTools?.intelligentItems?.() === false ? null : new CuriosIntelligence(api);
   api.loaded = foundry.utils.fetchJsonWithTimeout(`modules/${MOD}/data/curios.json`)
     .then((data) => {
       api.data = data;
