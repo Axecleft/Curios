@@ -1,4 +1,30 @@
 # Axecleft's Curios — changelog
+## 1.14.9.30
+
+- Ships Axecleft's Tools 9.3: **Support on Patreon**. Configure Settings → Axecleft's Curios has a new **Open Patreon** button, and the GM's Axecleft's Tools menu has a **Support on Patreon** button; both open [Axecleft's Patreon](https://www.patreon.com/Axecleft) in your web browser. The modules stay free; patrons get new releases two weeks early. The manifest lists the Patreon page as the author's link.
+- **Join the Discord**: Configure Settings → Axecleft's Curios and the Axecleft's Tools menu (for everyone) have a button that opens [Axecleft's Tool Suite Discord server](https://discord.gg/FRhPPwDWta), for help, news and ideas.
+- Translations: the psicrown lists (Crafting and the Curios Workshop) use the word file's names; the psicrowns are added to words.template.json and fr.words.json to translate (reported by Gilgalad).
+
+## 1.14.9.29
+
+- Ships the Treasure Generator 9.994 and Merchant Generator 7.93: a new **Your item compendiums** row in Generation settings sets how much treasure (default 0%) and merchant stock (default 50%, as before) comes from your own Item compendiums instead of the SRD tables, and a `Treasure weight: n` item tag makes an item more or less likely (suggested by Gilgalad).
+
+## 1.14.9.28
+
+- Ships the Treasure Generator 9.993: in Generation settings, the Sizes of arms, Poisons and Cursed items rows start with their checkbox at the left like the other rows; the Shared treasure lists library setting no longer says the lists hold weapons.
+
+## 1.14.9.27
+
+- Ships the Treasure Generator 9.992: on the Lists tab, hovering a column label explains it, and a list's notes show under its fields.
+
+## 1.14.9.26
+
+- Number boxes in the Treasure Generator, Merchant Generator and Crafting windows are right-aligned, so a value sits next to the % or unit after it (suggested by Gilgalad). Axecleft's Treasure Lists journal is written entirely in the world's language and is rewritten when the language changes, keeping your rows; each page lists its columns one per line, warns to keep the column headings as they are, and shows an example row. Ships the Treasure Generator 9.991, the Merchant Generator 7.92 and the Crafting engine 1.95.
+
+## 1.14.9.25
+
+- Ships the Treasure Generator 9.99 and Merchant Generator 7.91: on the Merchant Generator's Item Sources tab, every source list (Enhancements, Special materials, Spells, Psionic powers…) now shows how many items each compendium it uses supplies, next to the compendium, as the Item compendiums list already did. Each heading reads "n of m used", like the Item compendiums heading. Rescan and Save and Rescan read these lists again too.
+
 ## 1.14.9.24
 
 - Ships Axecleft's Tools 9.2: the User Guide button opens the Tool Suite's wiki in Foundry's language: French, Spanish, Brazilian Portuguese or European Portuguese when you play in one of them, English otherwise.

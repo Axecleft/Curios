@@ -14,6 +14,13 @@ import { SpellPicker, parseSpellBox } from "./curios-picker.js";
 import { METAMAGIC } from "./curios-consumables.js";
 
 const T = () => globalThis.AxecleftTreasure;
+
+/** A name from this module's English data as shown in the world's language: the word file's entry, else the name given
+ *  (Babele's), else the English; first letter capitalised for lists. */
+const dn = (en, shown) => {
+  const s = String(globalThis.AxecleftTools?.word?.(en, { text: shown ?? null })?.text || shown || en || "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 const { MOD, KINDS, normName } = D;
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const opt = (v, label, sel) => `<option value="${esc(v)}"${String(v) === String(sel ?? "") ? " selected" : ""}>${esc(label)}</option>`;
@@ -70,7 +77,7 @@ export class CuriosWorkshop {
       <div class="form-group" data-cw="book">${L("Spellbook class")}<input type="text" name="cw.cls" value="${esc(recall("cls", "Wizard"))}">${hint("its spells go in the owner's spellbook for this class")}</div>
       <div class="form-group" data-cw="item">${L("Item")}<input type="text" name="cw.item" list="cw-items" value="${esc(recall("item", ""))}" placeholder="${H("Type to search your item sources")}"><datalist id="cw-items">${(this.itemList ?? []).map((n) => `<option value="${esc(n)}">`).join("")}</datalist></div>
       <div class="form-group" data-cw="crystal">${L("Capacity")}<select name="cw.pp">${CRYSTAL_SIZES.map((n) => opt(n, `${t(n === 1 ? "{n} power point" : "{n} power points", { n })} (${gp(crystalPrice(n))})`, recall("pp", "1"))).join("")}</select><label class="atg-cb" style="flex:1"><input type="checkbox" name="cw.charged" ${recall("charged", "1") === "1" ? "checked" : ""}> ${H("Charged")}</label></div>
-      <div class="form-group" data-cw="crown">${L("Psicrown")}<select name="cw.crown">${(this.api.data?.tables?.psicrowns ?? []).map((r) => opt(r.name, `${r.name}${r.artifact ? ` ${t("(artifact)")}` : ""}: ${r.pp} PP, ${t("ML {n}", { n: r.ml })}${r.price ? `, ${gp(r.price)}` : ""}`, recall("crown", "Dominator"))).join("")}${opt("custom", t("Custom: the powers I list"), recall("crown", "Dominator"))}</select></div>
+      <div class="form-group" data-cw="crown">${L("Psicrown")}<select name="cw.crown">${(this.api.data?.tables?.psicrowns ?? []).map((r) => opt(r.name, `${dn(r.name)}${r.artifact ? ` ${t("(artifact)")}` : ""}: ${r.pp} PP, ${t("ML {n}", { n: r.ml })}${r.price ? `, ${gp(r.price)}` : ""}`, recall("crown", "Dominator"))).join("")}${opt("custom", t("Custom: the powers I list"), recall("crown", "Dominator"))}</select></div>
       <div class="form-group" data-cw="light">${L("Sheds light")}<select name="cw.light">${opt("settings", t("By Generation settings (random)"), recall("light", "settings"))}${opt("none", t("No"), recall("light", "settings"))}${opt("on", t("Yes"), recall("light", "settings"))}</select>${hint("rings, rods, staffs and wondrous items; look from the item's school of magic")}</div>
       <div class="form-group" data-cw="light">${L("Intelligent")}<select name="cw.intel">${opt("settings", t("By Generation settings (random)"), recall("intel", "settings"))}${opt("none", t("No"), recall("intel", "settings"))}${opt("on", t("Yes (roll its mind and powers)"), recall("intel", "settings"))}</select></div>
       ${T()?.curseField?.("cw.cursed") ?? ""}

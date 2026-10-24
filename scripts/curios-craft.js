@@ -37,6 +37,13 @@ const opt = (v, label, sel) => `<option value="${esc(v)}"${String(v) === String(
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const T = () => globalThis.AxecleftTreasure;
 
+/** A name from this module's English data as shown in the world's language: the word file's entry, else the name given
+ *  (Babele's), else the English; first letter capitalised for lists. */
+const dn = (en, shown) => {
+  const s = String(globalThis.AxecleftTools?.word?.(en, { text: shown ?? null })?.text || shown || en || "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 /** What each item needs (SRD feats and their minimum caster level). */
 export const CRAFT = {
   scroll: { feat: "Scribe Scroll", minCl: 1, label: /*t*/"Scroll", many: true },
@@ -472,7 +479,7 @@ export class CuriosPsiCraft {
     return `<p class="hint">${H("By the SRD: supplies cost ½ of the price and the XP 1/25 of it. A cognizance crystal's manifester level is its capacity (Craft Cognizance Crystal). A psicrown holds 50 power points per manifester level (Craft Psicrown, manifester level 12; the crown's own level at least 8th); you must know each of its powers.")}</p>
       <div class="form-group"><label>${H("Item")}</label><select name="craft.what">${opt("crystal", t("Cognizance crystal (Craft Cognizance Crystal)"), what)}${opt("psicrown", t("Psicrown (Craft Psicrown)"), what)}</select></div>
       <div class="form-group" data-cp="crystal"><label>${H("Capacity")}</label><select name="craft.pp">${CRYSTAL_SIZES.map((n) => opt(n, t(n === 1 ? "{n} power point ({price})" : "{n} power points ({price})", { n, price: gp(crystalPrice(n)) }), v.pp ?? 1)).join("")}</select></div>
-      <div class="form-group" data-cp="crown"><label>${H("Psicrown")}</label><select name="craft.crown">${crowns.map((r) => opt(r.name, `${r.name}: ${t("{pp} PP, ML {ml}, {price}", { pp: r.pp, ml: r.ml, price: gp(r.price) })}`, v.crown ?? "Dominator")).join("")}${opt("custom", t("Custom: the powers I list"), v.crown)}</select></div>
+      <div class="form-group" data-cp="crown"><label>${H("Psicrown")}</label><select name="craft.crown">${crowns.map((r) => opt(r.name, `${dn(r.name)}: ${t("{pp} PP, ML {ml}, {price}", { pp: r.pp, ml: r.ml, price: gp(r.price) })}`, v.crown ?? "Dominator")).join("")}${opt("custom", t("Custom: the powers I list"), v.crown)}</select></div>
       <div class="form-group" data-cp="custom"><label>${H("Powers")}</label><textarea name="craft.powers" rows="3" placeholder="${H("One power per line")}">${esc(v.powers ?? "")}</textarea></div>
       <div class="form-group" data-cp="custom"><label>${H("Manifester level")}</label><input type="number" name="craft.ml" min="8" max="30" value="${esc(v.ml ?? "")}" placeholder="${H("lowest")}"><span class="hint" style="flex:1">${H("at least 8th and the highest power's minimum, at most 5 above it; points 50 × level. Price: the SRD staff formula (Axecleft house rule).")}</span></div>`;
   }
