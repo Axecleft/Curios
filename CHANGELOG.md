@@ -1,4 +1,12 @@
 # Axecleft's Curios — changelog
+## 1.14.9.31
+
+- Ships Axecleft's Tools 9.6: the **Join the Discord** and **Support on Patreon** buttons are gone from the Axecleft's Tools menu and the module settings. A welcome window opens when Foundry starts, with the links to the Tool Suite's Discord, Patreon and User Guide; it can be turned off for the whole world (GM) or just for you in Configure Settings → any Axecleft module → **Axecleft's Tool Suite**. Also fixes dice formulas that use a function as the number of dice (D35E's Lightning Bolt, `min((@cl),10)d6`), which Foundry 14 refused.
+- **Intelligent items in the world's language** (reported by Gilgalad): the lesser, greater and dedicated powers, the special purposes and the mind table (D35E's Intelligent Item Tables are in English) are now read from the language file; all 89 results are in template.json, with a French translation.
+- Intelligent items: a spell power's uses (3/day, at will, continuous) are also read from tables translated with Babele ("3/jour", "à volonté", and the Spanish, Portuguese and German forms).
+- Intelligent items: a random alignment also suits the epic Holy Power, Unholy Power, Axiomatic Power and Anarchic Power (good, evil, lawful, chaotic), as it does holy, unholy, axiomatic and anarchic (asked by Gilgalad).
+- Translations: the Curios Workshop's labels and hints (Category, SRD limits, Highest potion and wand level, Highest spell level, Number of spells, Spellbook class and their hints) are in the language files, with French (reported by Gilgalad).
+
 ## 1.14.9.30
 
 - Ships Axecleft's Tools 9.3: **Support on Patreon**. Configure Settings → Axecleft's Curios has a new **Open Patreon** button, and the GM's Axecleft's Tools menu has a **Support on Patreon** button; both open [Axecleft's Patreon](https://www.patreon.com/Axecleft) in your web browser. The modules stay free; patrons get new releases two weeks early. The manifest lists the Patreon page as the author's link.

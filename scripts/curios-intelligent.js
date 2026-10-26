@@ -21,6 +21,8 @@ const pick = (l) => l[Math.floor(Math.random() * l.length)];
 const t = (s, d) => globalThis.AxecleftTools?.t?.(s, d) ?? (d ? String(s).replace(/\{(\w+)\}/g, (m, k) => d[k] ?? m) : String(s));
 const num = (n) => { const l = globalThis.AxecleftTools?.i18n?.lang; return Number(n).toLocaleString(l && l !== "en" ? l : "en-US"); };
 const gp = (n) => t("{n} gp", { n: num(Math.round(n * 100) / 100) });
+/** A result of D35E's Intelligent Item Tables in the world's language (D35E's tables are English; their lines are in the language file). */
+const tx = (s) => t(String(s ?? ""));
 /** An alignment's name in the world's language. */
 const alignName = (a) => t(ALIGN_NAMES[a] ?? a);
 const mod = (s) => Math.floor((Number(s) - 10) / 2);
@@ -28,7 +30,8 @@ const mod = (s) => Math.floor((Number(s) - 10) / 2);
 export const ALIGN_NAMES = { lg: /*t*/"lawful good", ng: /*t*/"neutral good", cg: /*t*/"chaotic good", ln: /*t*/"lawful neutral", nn: /*t*/"neutral", cn: /*t*/"chaotic neutral", le: /*t*/"lawful evil", ne: /*t*/"neutral evil", ce: /*t*/"chaotic evil" };
 const OPPOSED = { lg: "ce", ng: "ne", cg: "le", ln: "cn", cn: "ln", le: "cg", ne: "ng", ce: "lg" };
 /** Abilities that fix one axis of the item's alignment. */
-const ABILITY_AXIS = { holy: ["ge", "g"], unholy: ["ge", "e"], axiomatic: ["lc", "l"], anarchic: ["lc", "c"] };
+const ABILITY_AXIS = { holy: ["ge", "g"], unholy: ["ge", "e"], axiomatic: ["lc", "l"], anarchic: ["lc", "c"],
+  "holy power": ["ge", "g"], "unholy power": ["ge", "e"], "axiomatic power": ["lc", "l"], "anarchic power": ["lc", "c"] }; // and their SRD epic versions
 const PURPOSE_TEXT = {
   oppAlign: (ctx) => ctx.align === "nn" ? t("Defeat/slay creatures of extreme alignments (lawful good, chaotic good, lawful evil, chaotic evil)") : t("Defeat/slay {alignment} creatures (the opposed alignment)", { alignment: alignName(OPPOSED[ctx.align]) }),
   arcane: () => t("Defeat/slay arcane spellcasters (including spellcasting monsters and those that use spell-like abilities)"),
@@ -40,15 +43,16 @@ const PURPOSE_TEXT = {
   slayDeityServants: () => t("Defeat/slay the servants of a specific deity (the GM chooses the deity)"),
   defendDeity: () => t("Defend the servants and interests of a specific deity (the GM chooses the deity)"),
   slayAll: () => t("Defeat/slay all (other than the item and the wielder)"),
-  choose: () => "A purpose of the GM's choice",
+  choose: () => t("A purpose of the GM's choice"),
 };
 
 /** Usage from a table result's text: "3/day", "at will", "continually". */
 function usageOf(text) {
-  const m = String(text ?? "").match(/(\d+)\/day/i);
+  // English, or a table translated with Babele (French, Spanish, Portuguese, German)
+  const m = String(text ?? "").match(/(\d+)\s*(?:\/|par|por|pro)\s*(?:day|jour|d[ií]a|tag)/i);
   if (m) return { usage: "day", count: Number(m[1]) };
-  if (/at will/i.test(text)) return { usage: "atwill", count: 0 };
-  if (/continual|continuous|always active|once per month/i.test(text)) return { usage: "atwill", count: 0 };
+  if (/at will|à volonté|a voluntad|à vontade|nach belieben/i.test(text)) return { usage: "atwill", count: 0 };
+  if (/continual|continuous|always active|once per month|continu|permanen|par mois|por mes|por mês/i.test(text)) return { usage: "atwill", count: 0 };
   return { usage: "day", count: 1 };
 }
 
@@ -81,7 +85,7 @@ export class CuriosIntelligence {
   options(kind) {
     return (this.tables?.[kind] ?? []).map((x, i) => {
       const price = x.flags.priceGp ?? x.flags.priceModifierGp;
-      return { value: String(i), label: `${x.text.replace(/\s*\+[\d,]+ gp\.?$/, "")}${price ? ` (+${gp(Number(price))})` : ""}` };
+      return { value: String(i), label: `${tx(x.text).replace(/\s*\+[\d\s,.\u00a0\u202f]+\s*[^\s\d.]+\.?$/, "")}${price ? ` (+${gp(Number(price))})` : ""}` };
     });
   }
 
@@ -108,7 +112,7 @@ export class CuriosIntelligence {
   }
   /** One power from a table row, as D35E stores it in system.intelligent.powers. */
   async power(row, tier) {
-    const base = { tier, powerTier: tier, label: row.text.slice(0, 120), text: row.text, egoPoints: row.flags.egoPoints ?? (tier === "greater" ? 2 : tier === "lesser" ? 1 : 0), priceModifierGp: row.flags.priceModifierGp ?? 0 };
+    const base = { tier, powerTier: tier, label: tx(row.text).slice(0, 120), text: tx(row.text), egoPoints: row.flags.egoPoints ?? (tier === "greater" ? 2 : tier === "lesser" ? 1 : 0), priceModifierGp: row.flags.priceModifierGp ?? 0 };
     if (row.uuid) {
       try {
         const doc = await fromUuid(row.uuid);
@@ -173,7 +177,7 @@ export class CuriosIntelligence {
     }
     const foes = this.data.tables.baneFoes;
     const ctx = { align, foe: (k) => { const list = k === "race" ? foes.filter((f) => /humanoid|giant|elf|dwarf|orc|goblin/i.test(f.foe)) : foes; return pick(list.length ? list : foes).foe.toLowerCase(); } };
-    const purposeText = purposeRow ? (PURPOSE_TEXT[purposeRow.flags.code] ?? (() => purposeRow.text))(ctx) : "";
+    const purposeText = purposeRow ? (PURPOSE_TEXT[purposeRow.flags.code] ?? (() => tx(purposeRow.text)))(ctx) : "";
     // Languages: Common plus one per point of Intelligence bonus
     const extra = Math.max(0, mod(scores.int));
     const languages = extra ? t("Common and {n} more (the GM's choice)", { n: extra }) : t("Common");
@@ -187,7 +191,7 @@ export class CuriosIntelligence {
       empathy: !!c.empathy, speech: !!c.speech, telepathy: !!c.telepathy, readLanguages: !!c.readLanguages, readMagic: !!c.readMagic,
       languages, visionRange: Number(c.vision) || 0, sensesText: senses.join("; "),
       senses: { lowLight: false, lowLightMultiplier: 2, blindsight: 0, darkvision: Number(c.darkvision) || 0, tremorsense: 0, truesight: 0 },
-      powers, skills: [], hasSpecialPurpose: !!purposeRow, specialPurpose: purposeText, dedicatedPower: dedicated ? dedicated.row.text : "",
+      powers, skills: [], hasSpecialPurpose: !!purposeRow, specialPurpose: purposeText, dedicatedPower: dedicated ? tx(dedicated.row.text) : "",
       personality: "", egoOverride: null,
     };
     const price = (Number(c.priceGp) || 0) + [...lesser, ...greater].reduce((s, p) => s + (Number(p.row.flags.priceModifierGp) || 0), 0)
@@ -199,8 +203,8 @@ export class CuriosIntelligence {
       t("Alignment {alignment}; Int {int}, Wis {wis}, Cha {cha}; Ego {ego}", { alignment: alignName(align), int: scores.int, wis: scores.wis, cha: scores.cha, ego }),
       t("Communication: {ways}; speaks {languages}", { ways: [c.empathy ? t("empathy") : "", c.speech ? t("speech") : "", c.telepathy ? t("telepathy") : "", c.readLanguages ? t("reads languages") : "", c.readMagic ? t("reads magic") : ""].filter(Boolean).join(", "), languages }),
       t("Senses: {senses}", { senses: senses.join("; ") }),
-      ...lesser.map((p) => t("Lesser power: {power}", { power: p.row.text })), ...greater.map((p) => t("Greater power: {power}", { power: p.row.text })),
-      ...(purposeRow ? [t("Special purpose: {purpose}", { purpose: purposeText }), t("Dedicated power: {power}", { power: dedicated?.row.text ?? "—" })] : []),
+      ...lesser.map((p) => t("Lesser power: {power}", { power: tx(p.row.text) })), ...greater.map((p) => t("Greater power: {power}", { power: tx(p.row.text) })),
+      ...(purposeRow ? [t("Special purpose: {purpose}", { purpose: purposeText }), t("Dedicated power: {power}", { power: dedicated ? tx(dedicated.row.text) : "—" })] : []),
     ];
     return { intelligent, price, ego, lines, summary: t("intelligent ({alignment}, Ego {ego})", { alignment: alignName(align), ego }) };
   }
