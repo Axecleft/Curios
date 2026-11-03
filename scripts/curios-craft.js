@@ -574,5 +574,47 @@ export function registerCuriosCrafting(api) {
     module: MOD, key: "alchemy", label: /*t*/"Alchemical items", icon: "fas fa-flask", order: 32, magic: false,
     prepare: () => alchemy.prepare(), content: (ctx) => alchemy.content(ctx), wire: (s) => alchemy.wire(s), evaluate: (ctx) => alchemy.evaluate(ctx),
   });
+  registerCraftTours(C);
   return craft;
+}
+
+/** Tours of Curios' crafting tabs (Axecleft's Tools 9.7, Crafting 1.96): Tour Management, or the Crafting window's ⋮ menu. */
+function registerCraftTours(C) {
+  if (!C.registerTour) return;
+  C.registerTour({ module: MOD, key: "spell-items", label: /*t*/"Scrolls, potions, wands", next: [`${MOD}.craft-magic-items`],
+    title: /*t*/"Crafting: Scrolls, potions, wands", description: /*t*/"Scribe scrolls, brew potions, craft wands, and their psionic versions.",
+    intro: /*t*/"Scrolls (Scribe Scroll), potions and oils (Brew Potion) and wands (Craft Wand), and with psionics power stones, psionic tattoos and dorjes. The crafter must know or have each spell.",
+    steps: [
+      { id: "item", field: "craft.item", title: /*t*/"Item", content: /*t*/"What to make, each with its creation feat." },
+      { id: "spells", field: "craft.spells", title: /*t*/"Spells", content: /*t*/"The spell or power, typed or picked. A scroll or power stone can hold several, one per line; metamagic can be added. The crafter needs each spell prepared or known, or a source for it below the plan." },
+      { id: "list", field: "craft.list", title: /*t*/"Scroll type", content: /*t*/"Shown for a scroll: arcane or divine, for a spell on both lists." },
+      { id: "cl", field: "craft.cl", title: /*t*/"Caster level", content: /*t*/"Blank: the lowest that can cast it. It can't be higher than the crafter's own; a higher one raises the price." },
+      { id: "qty", field: "craft.qty", title: /*t*/"How many", content: /*t*/"Shown for potions and psionic tattoos: each one costs and takes the same (SRD: no savings for making several)." },
+      { id: "help", sel: "details.acr-help", title: /*t*/"How requirements are found", content: /*t*/"Open this to see how crafting reads an item's requirements from the SRD construction line at the end of its description, so you can make your own items craftable." },
+    ] });
+  C.registerTour({ module: MOD, key: "magic-items", label: /*t*/"Rings, rods, staffs, wondrous", next: [`${MOD}.craft-alchemy`],
+    title: /*t*/"Crafting: Rings, rods, staffs, wondrous", description: /*t*/"Forge rings, craft rods and staffs, and make wondrous items.",
+    intro: /*t*/"Rings, rods, staffs and wondrous items from your item compendiums, each with its creation feat. The requirements come from the SRD statblock in the item's description.",
+    steps: [
+      { id: "group", field: "craft.group", title: /*t*/"Kind", content: /*t*/"Ring, rod, staff or wondrous item (and psionic universal items while psionics is on). Epic items are listed while Epic items is on." },
+      { id: "name", field: "craft.name", title: /*t*/"Item", content: /*t*/"Type to search your item sources." },
+      { id: "intel", field: "craft.intel", title: /*t*/"Intelligent", content: /*t*/"Shown with D35E 3.1 or later (which has intelligent items): make it intelligent (caster level 15; it takes your alignment). Its mind and powers are rolled when the GM approves, and their price is added." },
+      { id: "light", field: "craft.light", title: /*t*/"Sheds light", content: /*t*/"The creator decides now whether it sheds light; its look follows the item's school of magic." },
+    ] });
+  C.registerTour({ module: MOD, key: "alchemy", label: /*t*/"Alchemical items", next: [`${MOD}.craft-psi-items`],
+    title: /*t*/"Crafting: Alchemical items", description: /*t*/"Make alchemical items with Craft (alchemy).",
+    intro: /*t*/"Craft (alchemy), by the SRD: raw materials cost a third of the price; one check against the item's DC. Failing by 4 or less makes no progress; by 5 or more ruins half the materials.",
+    steps: [
+      { id: "item", field: "craft.alch", title: /*t*/"Item", content: /*t*/"The SRD alchemical items, plus those in your item compendiums, with their price and DC." },
+      { id: "dc", field: "craft.alchDc", title: /*t*/"Craft DC", content: /*t*/"Shown for an item that isn't in the SRD: choose its DC from the SRD Craft table." },
+      { id: "qty", field: "craft.qty", title: /*t*/"How many", content: /*t*/"Made together: one check, and the price of them all for the time." },
+    ] });
+  C.registerTour({ module: MOD, key: "psi-items", label: /*t*/"Crystals, psicrowns",
+    title: /*t*/"Crafting: Crystals, psicrowns", description: /*t*/"Make cognizance crystals and psicrowns (psionics).",
+    intro: /*t*/"Cognizance crystals (Craft Cognizance Crystal) and psicrowns (Craft Psicrown). Supplies cost half the price and the XP 1/25 of it. Only while psionics is on.",
+    steps: [
+      { id: "what", field: "craft.what", title: /*t*/"Item", content: /*t*/"A cognizance crystal or a psicrown." },
+      { id: "pp", field: "craft.pp", title: /*t*/"Capacity", content: /*t*/"Shown for a cognizance crystal: its power points. Its manifester level is its capacity." },
+      { id: "crown", field: "craft.crown", title: /*t*/"Psicrown", content: /*t*/"Shown for a psicrown: an SRD psicrown, or your own, with its powers (one per line) and manifester level, priced by the SRD staff formula (house rule)." },
+    ] });
 }

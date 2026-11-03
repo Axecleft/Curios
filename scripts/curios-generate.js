@@ -17,11 +17,11 @@ import { maybeLight } from "./curios-light.js";
 import { crownFacts, crownRow, setupCrown, rollCrystal, rollCrown } from "./curios-psionic.js";
 
 /** Generation settings ("Other permanent magic items", SRD under 1%): maybe make a ring, rod, staff or wondrous item intelligent. */
-async function maybeIntelligent(api, data, force = null) {
+async function maybeIntelligent(api, data, force = null, choice = {}) {
   if (force === false || !api.intelligence || data?.system?.intelligent?.enabled) return null;
   if (force !== true && !globalThis.AxecleftTreasure?.genChance?.("intelligence", "other")) return null;
   try {
-    const intel = await api.intelligence.roll({ abilities: [], bonus: 0, effective: 0 });
+    const intel = await api.intelligence.roll({ abilities: [], bonus: 0, effective: 0, ...choice });
     api.intelligence.applyToData(data, intel);
     return intel;
   } catch (err) { console.warn("axeclefts-curios | intelligence failed", err); return null; }

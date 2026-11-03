@@ -80,15 +80,17 @@ export class CuriosWorkshop {
       <div class="form-group" data-cw="crown">${L("Psicrown")}<select name="cw.crown">${(this.api.data?.tables?.psicrowns ?? []).map((r) => opt(r.name, `${dn(r.name)}${r.artifact ? ` ${t("(artifact)")}` : ""}: ${r.pp} PP, ${t("ML {n}", { n: r.ml })}${r.price ? `, ${gp(r.price)}` : ""}`, recall("crown", "Dominator"))).join("")}${opt("custom", t("Custom: the powers I list"), recall("crown", "Dominator"))}</select></div>
       <div class="form-group" data-cw="light">${L("Sheds light")}<select name="cw.light">${opt("settings", t("By Generation settings (random)"), recall("light", "settings"))}${opt("none", t("No"), recall("light", "settings"))}${opt("on", t("Yes"), recall("light", "settings"))}</select>${hint("rings, rods, staffs and wondrous items; look from the item's school of magic")}</div>
       <div class="form-group" data-cw="light">${L("Intelligent")}<select name="cw.intel">${opt("settings", t("By Generation settings (random)"), recall("intel", "settings"))}${opt("none", t("No"), recall("intel", "settings"))}${opt("on", t("Yes (roll its mind and powers)"), recall("intel", "settings"))}</select></div>
+      <div class="form-group" data-cw="intelPurpose">${L("Special purpose")}<select name="cw.ipurpose">${opt("rule", t("By Generation settings"), recall("ipurpose", "rule"))}${opt("none", t("None"), recall("ipurpose", "rule"))}${opt("random", t("Random"), recall("ipurpose", "rule"))}${(this.api.intelligence?.tables ? this.api.intelligence.options("purpose") : []).map((o) => opt(o.value, o.label, recall("ipurpose", "rule"))).join("")}${opt("custom", t("Your own…"), recall("ipurpose", "rule"))}</select></div>
+      <div class="form-group" data-cw="intelPurposeText">${L("Your purpose")}<input type="text" name="cw.ipurposeText" value="${esc(recall("ipurposeText", ""))}" placeholder="${H("e.g. Defend the town of Hommlet")}">${hint("Used for Your own…, and when the roll gives the GM's choice. Blank: the item says the GM chooses.")}</div>
       ${T()?.curseField?.("cw.cursed") ?? ""}
       <div class="form-group" data-cw="random">${L("Category")}<select name="cw.cat">${Object.keys(CATS).map((c) => opt(c, t(T()?.CATEGORIES?.[c]?.label ?? c), recall("cat", "magic:wondrous"))).join("")}</select>
         <select name="cw.grade">${["minor", "medium", "major"].map((g) => opt(g, t(g[0].toUpperCase() + g.slice(1)), recall("grade", "medium"))).join("")}</select></div>
       <div class="form-group">${L("How many")}<input type="number" name="cw.count" min="1" max="20" value="${esc(recall("count", "1"))}"><label class="atg-cb" style="flex:1"><input type="checkbox" name="cw.unid" ${recall("unid", "1") === "1" ? "checked" : ""}> ${H("Unidentified")}</label></div>
       <div class="form-group" data-cw="cl">${L("SRD limits")}<label class="atg-cb" style="flex:1"><input type="checkbox" name="cw.force" ${recall("force", "0") === "1" ? "checked" : ""}> ${H("Ignore them (GM): any spell level, area spells in potions, personal spells")}</label></div>
       <p class="hint" data-cw-check></p>
-      <fieldset><legend>${H("GM only")}</legend>
-        <div class="form-group">${L("Highest potion level")}<input type="number" name="cw.potionLevel" min="3" max="9" value="${cap}">${hint(r.psionics ? "SRD: 3rd. Raise it to let the GM make potions and tattoos of higher-level spells and powers here. Players' crafting always stays at 3rd." : "SRD: 3rd. Raise it to let the GM make potions of higher-level spells here. Players' crafting always stays at 3rd.")}</div>
-        <div class="form-group">${L("Highest wand level")}<input type="number" name="cw.wandLevel" min="4" max="9" value="${wcap}">${hint(r.psionics ? "SRD: 4th. Raise it to let the GM make wands and dorjes of higher-level spells and powers here. Players' crafting always stays at 4th." : "SRD: 4th. Raise it to let the GM make wands of higher-level spells here. Players' crafting always stays at 4th.")}</div>
+      <fieldset data-cw="caps"><legend>${H("GM only")}</legend>
+        <div class="form-group" data-cw="potionCap">${L("Highest potion level")}<input type="number" name="cw.potionLevel" min="3" max="9" value="${cap}">${hint(r.psionics ? "SRD: 3rd. Raise it to let the GM make potions and tattoos of higher-level spells and powers here. Players' crafting always stays at 3rd." : "SRD: 3rd. Raise it to let the GM make potions of higher-level spells here. Players' crafting always stays at 3rd.")}</div>
+        <div class="form-group" data-cw="wandCap">${L("Highest wand level")}<input type="number" name="cw.wandLevel" min="4" max="9" value="${wcap}">${hint(r.psionics ? "SRD: 4th. Raise it to let the GM make wands and dorjes of higher-level spells and powers here. Players' crafting always stays at 4th." : "SRD: 4th. Raise it to let the GM make wands of higher-level spells here. Players' crafting always stays at 4th.")}</div>
       </fieldset>`;
   }
 
@@ -99,8 +101,14 @@ export class CuriosWorkshop {
       const custom = m === "psicrown" && el("crown")?.value === "custom";
       const spelly = ["potion", "scroll", "master", "wand", "book", "tattoo", "powerstone", "pmaster", "dorje"].includes(m) || custom;
       const psi = ["tattoo", "powerstone", "pmaster", "dorje"].includes(m) || custom;
+      // 1.14.9.32: the GM's level limits only for what they limit (potions and tattoos; wands and dorjes)
+      const cat = m === "random" ? el("cat")?.value : null;
+      const potionCap = ["potion", "tattoo"].includes(m) || cat === "magic:potion", wandCap = ["wand", "dorje"].includes(m) || cat === "magic:wand";
       section.querySelectorAll("[data-cw]").forEach((x) => {
         const k = x.dataset.cw;
+        // 1.14.9.32: the special purpose of an intelligent specific item
+        if (k === "intelPurpose" || k === "intelPurposeText") { x.style.display = m === "item" && el("intel")?.value === "on" && (k === "intelPurpose" || el("ipurpose")?.value !== "none") ? "" : "none"; return; }
+        if (k === "potionCap" || k === "wandCap" || k === "caps") { x.style.display = (k === "potionCap" ? potionCap : k === "wandCap" ? wandCap : potionCap || wandCap) ? "" : "none"; return; }
         x.style.display = (k === "spells" && spelly) || (k === "list" && (m === "scroll" || m === "master")) || (k === "cl" && spelly && m !== "book") || (k === "crystal" && m === "crystal") || (k === "crown" && m === "psicrown")
           || (k === "light" && (m === "item" || (m === "random" && !["magic:potion", "magic:scroll", "magic:wand"].includes(el("cat")?.value)))) || (k === "book" && m === "book") || (k === "bookRandom" && m === "book" && el("bookMode")?.value === "random") || (k === "item" && m === "item") || (k === "random" && m === "random") ? "" : "none";
       });
@@ -119,6 +127,13 @@ export class CuriosWorkshop {
       this.check(section);
     });
     section.querySelector("[name='cw.spells']")?.addEventListener("input", (ev) => remember("spells", ev.target.value));
+    // D35E's special purposes, once its Intelligent Item Tables are read (they load on first use)
+    const ps = el("ipurpose"), I = this.api.intelligence;
+    if (ps && I && !I.tables) I.loadTables?.().then(() => {
+      const keep = recall("ipurpose", "rule");
+      const custom = ps.querySelector('option[value="custom"]');
+      for (const o of I.options("purpose")) { const x = document.createElement("option"); x.value = o.value; x.textContent = o.label; x.selected = keep === o.value; ps.insertBefore(x, custom); }
+    }).catch(() => {});
     show();
     this.check(section);
     // The spell picker (1.14.9.18): lists of spells by level, caster level and metamagic, added to the Spells box
@@ -142,7 +157,7 @@ export class CuriosWorkshop {
     return { make: v("make"), lines, list: v("list") || null, cl: Number(v("cl")) || null, cls: v("cls").trim() || "Wizard", item: v("item").trim(),
       bookMode: v("bookMode") || "listed", bookMax: Math.max(0, Math.min(9, Number(v("bookMax")) || 0)), bookCount: Math.max(1, Math.min(100, Number(v("bookCount")) || 1)),
       pp: Number(v("pp")) || 1, charged: !!section.querySelector('[name="cw.charged"]')?.checked, crown: v("crown") || "Dominator",
-      cat: v("cat"), grade: v("grade") || "medium", force: !!section.querySelector('[name="cw.force"]')?.checked, light: v("light") || "settings", intel: v("intel") || "settings", count: Math.max(1, Math.min(20, Number(v("count")) || 1)), unid: !!section.querySelector('[name="cw.unid"]')?.checked };
+      cat: v("cat"), grade: v("grade") || "medium", force: !!section.querySelector('[name="cw.force"]')?.checked, light: v("light") || "settings", intel: v("intel") || "settings", ipurpose: v("ipurpose") || "rule", ipurposeText: v("ipurposeText") || "", count: Math.max(1, Math.min(20, Number(v("count")) || 1)), unid: !!section.querySelector('[name="cw.unid"]')?.checked };
   }
 
   /** Check the spells as they are typed: found, level, rules. */
@@ -181,7 +196,7 @@ export class CuriosWorkshop {
       if (this.api.isEpic(row.item ?? row.name) && !T()?.rules?.()?.epic) throw new Error(t("{item} is an epic item; turn on Epic items (Treasure by Level → Generation settings).", { item: f.item }));
       const got = await this.api.generator.fixedItem(row, { unidentified: f.unid });
       const lit = maybeLight(got.data, { force: f.light === "on" ? true : f.light === "none" ? false : null });
-      const smart = await maybeIntelligent(this.api, got.data, f.intel === "on" ? true : f.intel === "none" ? false : null);
+      const smart = await maybeIntelligent(this.api, got.data, f.intel === "on" ? true : f.intel === "none" ? false : null, f.intel === "on" ? { purpose: f.ipurpose, purposeText: f.ipurposeText } : {});
       return { name: got.name, data: got.data, summary: `${gp(Number(got.data.system.price) || got.price)}${got.note ? ` (${got.note})` : ""}${lit ? t("; sheds light") : ""}${smart ? `; ${smart.summary}` : ""}` };
     }
     if (f.make === "book") return this.makeBook(f);
@@ -288,4 +303,42 @@ export function registerWorkshop(api) {
     generate: async (form, ctx) => { await api.loaded; return ws.generate(form, ctx); },
     generateTitle: () => t("Curios"),
   });
+  registerWorkshopTour(hub);
+}
+
+/**
+ * A tour of the Curios tab (Axecleft's Tools 9.7). The tab's boxes change with Make, so the tour switches Make to show
+ * each kind, and puts back the one that was chosen at the end.
+ */
+function registerWorkshopTour(hub) {
+  const R = globalThis.AxecleftTools?.registerTour;
+  if (!R || !hub.tourOpen) return;
+  const tab = `t-${MOD}-workshop`;
+  let was = null;
+  const make = (value) => (root) => {
+    const sel = root?.querySelector('[name="cw.make"]');
+    if (!sel || ![...sel.options].some((o) => o.value === value)) return;
+    was ??= sel.value;
+    if (sel.value !== value) { sel.value = value; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+  };
+  const restore = (root) => { if (was) make(was)(root); was = null; };
+  R({ module: MOD, id: "workshop", app: "axecleft-treasure-generator", tab, open: hub.tourOpen(tab),
+    title: /*t*/"Treasure Generator: Curios", description: /*t*/"Make potions, scrolls, wands, spellbooks, psionic items, rings, rods, staffs and wondrous items.",
+    steps: [
+      { ...hub.tourTabStep(tab, /*t*/"Curios", /*t*/"This tab makes every magic item that isn't arms or armor, from your Spell and Power sources and item compendiums. Prices follow the SRD; treasure starts unidentified."), before: (root) => { was = null; } },
+      { id: "make", field: "cw.make", title: /*t*/"Make", content: /*t*/"What to make: a potion, scroll, wand or spellbook; a psionic tattoo, power stone, dorje, cognizance crystal or psicrown; a specific ring, rod, staff or wondrous item; or a random item from the SRD tables. The boxes below change with it." },
+      { id: "spells", field: "cw.spells", before: make("potion"), title: /*t*/"Spells", content: /*t*/"The spells (or powers), one per line. Add @ and a caster level to raise it: Fireball @10. A scroll or power stone with several can hold many." },
+      { id: "picker", sel: "fieldset.cu-picker", before: make("potion"), title: /*t*/"Spell picker", content: /*t*/"Search your spell sources by name, class list and level, add metamagic, and click a spell to add it to the box above." },
+      { id: "cl", field: "cw.cl", before: make("potion"), title: /*t*/"Caster level", content: /*t*/"Blank: the lowest caster level that can cast the spell. A higher one raises the price, as in the SRD." },
+      { id: "list", field: "cw.list", before: make("scroll"), title: /*t*/"Scroll type", content: /*t*/"Arcane or divine, or by the spell's own lists." },
+      { id: "book", field: "cw.bookMode", before: make("book"), title: /*t*/"Spellbook", content: /*t*/"A spellbook holds the spells you list, or random spells up to a highest level. Its spells go in the owner's spellbook for the class you name." },
+      { id: "item", field: "cw.item", before: make("item"), title: /*t*/"Item", content: /*t*/"Type to search the rings, rods, staffs and wondrous items in your item sources." },
+      { id: "light", field: "cw.light", before: make("item"), title: /*t*/"Sheds light and Intelligent", content: /*t*/"For rings, rods, staffs and wondrous items: whether it sheds light and whether it is intelligent, by Generation settings or by your choice." },
+      { id: "purpose", field: "cw.ipurpose", before: make("item"), title: /*t*/"Special purpose", content: /*t*/"With Intelligent Yes: its special purpose by Generation settings, none, random, one of D35E's, or Your own… with a Your purpose box. Your words also replace \"A purpose of the GM's choice\" when that is rolled." },
+      { id: "random", field: "cw.cat", before: make("random"), title: /*t*/"Category", content: /*t*/"For a random item: the kind of item and the grade (minor, medium or major) of the SRD table to roll on." },
+      { id: "gm", field: "cw.potionLevel", before: make("potion"), title: /*t*/"GM only", content: /*t*/"The highest spell level for potions and tattoos (SRD: 3rd) and for wands and dorjes (SRD: 4th) made here; each box shows only when you make one of those. Players' crafting always keeps to the SRD." },
+      { id: "count", field: "cw.count", before: restore, title: /*t*/"How many", content: /*t*/"How many to make for each target, and whether they start unidentified." },
+      { id: "force", field: "cw.force", title: /*t*/"SRD limits", content: /*t*/"For the GM: ignore the SRD's limits (spell level, area spells in potions, personal spells). The line below warns about anything that breaks them." },
+      ...hub.tourFooter(),
+    ] });
 }

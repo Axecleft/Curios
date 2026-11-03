@@ -137,7 +137,8 @@ export class CuriosIntelligence {
 
   /**
    * Roll (or take) every feature. choice = { alignment?: "lg", capabilities?: index, lesser?: [index|null], greater?: [index|null],
-   * purpose?: "none" | "random" | index, dedicated?: index | null, abilities, bonus }.
+   * purpose?: "none" | "random" | "custom" | index, purposeText?: the GM's own purpose (for "custom", or when the roll is the
+   * table's GM-chooses result), dedicated?: index | null, abilities, bonus }.
    * Returns { intelligent, price, ego, lines, summary }.
    */
   async roll(choice = {}) {
@@ -164,20 +165,29 @@ export class CuriosIntelligence {
       }
       return out;
     };
-    const lesser = await rollPowers("lesser", Number(c.lesser) || 0, choice.lesser ?? []);
-    const greater = await rollPowers("greater", Number(c.greater) || 0, choice.greater ?? []);
-    // Special purpose and dedicated power
-    let purposeRow = null, dedicated = null;
+    // Special purpose and dedicated power. SRD: an item with greater powers can have them instead of a greater power;
+    // a rolled purpose (Generation settings) takes the place of one greater power, or of one lesser power on an item
+    // with only lesser powers (house rule). A purpose chosen by hand (Forge, Curios) is an extra.
     const pc = choice.purpose ?? "rule";
-    const wantPurpose = pc === "none" ? false : pc === "rule" ? this.purposeByRule(greater.length) : true;
+    const nLesser = Number(c.lesser) || 0, nGreater = Number(c.greater) || 0;
+    const byRule = pc === "rule" ? this.purposeByRule(nGreater, nLesser) : false;
+    const lesser = await rollPowers("lesser", nLesser - (byRule === "lesser" ? 1 : 0), choice.lesser ?? []);
+    const greater = await rollPowers("greater", nGreater - (byRule === "greater" ? 1 : 0), choice.greater ?? []);
+    let purposeRow = null, dedicated = null;
+    const wantPurpose = pc === "none" ? false : pc === "rule" ? !!byRule : true;
     if (wantPurpose) {
-      purposeRow = /^\d+$/.test(String(pc)) ? tbl.purpose[Number(pc)] : this.rowFor("purpose", d100());
+      // "custom": the GM's own purpose (choice.purposeText), 1.14.9.35 / 1.14.9.32
+      purposeRow = pc === "custom" ? { range: [0, 0], text: "", flags: { code: "custom" } }
+        : /^\d+$/.test(String(pc)) ? tbl.purpose[Number(pc)] : this.rowFor("purpose", d100());
       const dRow = choice.dedicated != null && choice.dedicated !== "" ? tbl.dedicated[Number(choice.dedicated)] : this.rowFor("dedicated", d100());
       if (dRow) dedicated = { row: dRow, power: await this.power(dRow, "dedicated") };
     }
     const foes = this.data.tables.baneFoes;
     const ctx = { align, foe: (k) => { const list = k === "race" ? foes.filter((f) => /humanoid|giant|elf|dwarf|orc|goblin/i.test(f.foe)) : foes; return pick(list.length ? list : foes).foe.toLowerCase(); } };
-    const purposeText = purposeRow ? (PURPOSE_TEXT[purposeRow.flags.code] ?? (() => tx(purposeRow.text)))(ctx) : "";
+    // The GM's own words replace "a purpose of the GM's choice" (the table's GM-chooses result) or fill a custom purpose
+    const own = String(choice.purposeText ?? "").trim();
+    const purposeText = !purposeRow ? "" : own && ["custom", "choose"].includes(purposeRow.flags.code) ? own
+      : purposeRow.flags.code === "custom" ? PURPOSE_TEXT.choose(ctx) : (PURPOSE_TEXT[purposeRow.flags.code] ?? (() => tx(purposeRow.text)))(ctx);
     // Languages: Common plus one per point of Intelligence bonus
     const extra = Math.max(0, mod(scores.int));
     const languages = extra ? t("Common and {n} more (the GM's choice)", { n: extra }) : t("Common");
@@ -209,12 +219,20 @@ export class CuriosIntelligence {
     return { intelligent, price, ego, lines, summary: t("intelligent ({alignment}, Ego {ego})", { alignment: alignName(align), ego }) };
   }
 
-  /** Does an intelligent item get a special purpose? Generation settings: always with greater powers, plus a % of others. */
-  purposeByRule(greaterCount) {
-    const p = T()?.generation?.()?.intelligence?.purpose ?? this.data.generation?.intelligence?.purpose ?? { greater: true, chance: 0 };
+  /**
+   * Does an intelligent item get a special purpose (rolled by the Generation settings)? → "greater" (it replaces a greater
+   * power), "lesser" (it replaces a lesser power: an item with only lesser powers) or false.
+   * Settings: { on, greaterChance (SRD, default 100), lesserChance (house rule, default 0) }; older settings
+   * ({ greater: always with greater powers, chance: % of the others }) are read the same way as before.
+   */
+  purposeByRule(greaterCount, lesserCount = 0) {
+    const p = T()?.generation?.()?.intelligence?.purpose ?? this.data.generation?.intelligence?.purpose ?? {};
     if (p.on === false) return false;
-    if (greaterCount > 0 && p.greater !== false) return true;
-    return Math.random() * 100 < (Number(p.chance) || 0);
+    const old = p.greaterChance === undefined && (p.greater !== undefined || p.chance !== undefined);
+    const gc = old ? (p.greater !== false ? 100 : Number(p.chance) || 0) : Number(p.greaterChance ?? 100) || 0;
+    const lc = old ? Number(p.chance) || 0 : Number(p.lesserChance) || 0;
+    if (greaterCount > 0) return Math.random() * 100 < gc ? "greater" : false;
+    return lesserCount > 0 && Math.random() * 100 < lc ? "lesser" : false;
   }
 
   /** Add an intelligence (from roll()) to Curios item data: the price, D35E's system.intelligent and the description. */
