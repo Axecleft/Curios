@@ -1,4 +1,16 @@
 # Axecleft's Curios — changelog
+## 1.14.9.33
+
+- **One link installs the whole suite.** Every Axecleft module now recommends all the others (Gemstones, Armory, Curios, Traps, Adventurers and Minions, Hoard Editor, Printable Sheets, VooDoo and the Tools Suite manager), so installing any one of them offers to install the rest.
+- Ships Axecleft's Tools 9.74: **Help on hover**. In a window that has a tour, turn on **Help on hover** in its ⋮ menu and rest the mouse on a part of the window to see that part's tour text.
+- Tours reuse the windows' own sentences where they said the same thing (Axecleft's Tools 9.73: a tour step can be built from several texts), so a translator translates each once. Asked by Gilgalad.
+- Suggested by Gilgalad: random **rings, rods, staffs, wands and wondrous items** can carry an **inscription hint** that hints at their power (SRD: 30%; Generation settings, *Other permanent magic items* row; never potions or scrolls). It shows in the item's description, and a vaguer line in its unidentified description.
+- **Items with charges are never intelligent** (SRD): staffs, and rings and rods with charges, no longer roll random intelligence. Tick **Items with charges can be intelligent** in Generation settings (house rule, off by default) to keep rolling them. Crafting with *Intelligent: on* still makes one if you ask.
+- Suggested by Gilgalad: the **Spells** (and **Powers**) box on the Curios tab and the scroll, potion and wand crafting tab has its label above it and is as wide as the other fields, so its hint reads on one line.
+- A random ring, rod, staff or wondrous item that couldn't be found no longer risks an error before it is rolled again.
+- Ships the Treasure Generator 9.997: **Epic share of the extra items** on its own line in Generation settings; the **chance of each custom curse** (Lists tab), with how weights work on the Custom Curses page (asked by Gilgalad); inscription hint % for armor and shields and for other magic items. Ships the Crafting engine 1.98: the crafting window closes once a request is sent (a VooDoo phone shows its Chat), and the end of a craft (finished, failed, materials ruined) is posted at the bottom of the chat with a notification.
+- French: Gilgalad's fifth translation file.
+
 ## 1.14.9.32
 
 - Suggested by Gilgalad: a rolled **special purpose** takes the place of a power, as the SRD has it (two percentages in Generation settings: items with greater powers, default 100%, and items with only lesser powers, default 0%; your settings carry over), and shop types can sell **items by Shop tag**, including tags of your own (`Shop: Statue`), and only **gems or art objects named** with your words (a diamond merchant). Treasure Generator 9.996 and Merchant Generator 7.96.

@@ -16,9 +16,13 @@ import { makeMaster } from "./curios-links.js";
 import { maybeLight } from "./curios-light.js";
 import { crownFacts, crownRow, setupCrown, rollCrystal, rollCrown } from "./curios-psionic.js";
 
-/** Generation settings ("Other permanent magic items", SRD under 1%): maybe make a ring, rod, staff or wondrous item intelligent. */
+/** An item with charges (a staff, a wand, a ring or rod with charges): SRD, never intelligent. */
+const charged = (data) => /charge/i.test(String(data?.system?.uses?.per ?? "")) || /^staff\b|\bstaff$/i.test(String(D.enName(data) || data?.name || ""));
+/** Generation settings ("Other permanent magic items", SRD under 1%): maybe make a ring, rod or wondrous item intelligent (not one with charges). */
 async function maybeIntelligent(api, data, force = null, choice = {}) {
   if (force === false || !api.intelligence || data?.system?.intelligent?.enabled) return null;
+  // SRD: "Rings/Rods with charges can never be intelligent"; staffs and wands have charges. Generation settings can allow it (house rule).
+  if (force !== true && charged(data) && globalThis.AxecleftTreasure?.generation?.()?.intelligence?.charged !== true) return null;
   if (force !== true && !globalThis.AxecleftTreasure?.genChance?.("intelligence", "other")) return null;
   try {
     const intel = await api.intelligence.roll({ abilities: [], bonus: 0, effective: 0, ...choice });
@@ -27,6 +31,23 @@ async function maybeIntelligent(api, data, force = null, choice = {}) {
   } catch (err) { console.warn("axeclefts-curios | intelligence failed", err); return null; }
 }
 export { maybeIntelligent };
+
+/**
+ * Generation settings ("Other permanent magic items" hint, SRD 30% of rings, rods, staffs, wands and wondrous items;
+ * suggested by Gilgalad, 1.14.9.33): a design or inscription hints at the item's function. force: true / false / null (settings).
+ */
+function maybeHint(data, force = null) {
+  if (!data || force === false) return false;
+  if (force !== true && !globalThis.AxecleftTreasure?.genChance?.("hints", "other")) return false;
+  data.system ??= {};
+  data.system.description ??= {};
+  data.system.description.value = `${data.system.description.value ?? ""}<p><em>${t("A design or inscription on it hints at its power.")}</em></p>`;
+  if (data.system.description.unidentified !== undefined || data.system.identified === false) {
+    data.system.description.unidentified = `${data.system.description.unidentified ?? ""}<p><em>${t("A design or inscription on it hints at some power.")}</em></p>`;
+  }
+  return true;
+}
+export { maybeHint };
 
 const T = () => globalThis.AxecleftTreasure;
 const { MOD, KINDS, normName } = D;
@@ -183,6 +204,7 @@ export class CuriosGenerator {
           if (m.data.system?.identified === false) m.data.system.identifiedName = m.data.name;
           m.name = m.data.name;
         }
+        if (kind === "wand") maybeHint(m.data); // SRD: 30% of wands (never potions)
         return { name: m.name, data: m.data, summary: `${t(KINDS[kind].label)}, ${D.minCasterLevel(m.level) === m.cl ? "" : `${t("CL {n}", { n: m.cl })}, `}${gp(m.price)} ${t("(SRD {grade} table)", { grade: t(grade) })}` };
       } catch (err) { console.warn(`${MOD} | ${kind} of ${spell}: ${err.message}`); }
     }
@@ -303,11 +325,12 @@ export class CuriosGenerator {
       if (!row) continue;
       if (!rules.psionics && this.api.isPsionic(row.item ?? row.name)) continue;
       const got = await this.fixedItem(row, { unidentified });
+      if (!got) continue;
       // Light (Generation settings, "Other permanent magic items"; light: true/false forces it)
       const lit = maybeLight(got.data, { force: light });
+      maybeHint(got.data);
       const smart = await maybeIntelligent(this.api, got.data, intel);
       if (smart) got.price = Number(got.data.system.price) || got.price;
-      if (!got) continue;
       const label = t({ "magic:ring": /*t*/"Ring", "magic:rod": /*t*/"Rod", "magic:staff": /*t*/"Staff", "magic:wondrous": /*t*/"Wondrous item" }[category]);
       return { name: got.name, data: got.data, summary: `${label}, ${gp(got.price)}${got.from ? `; ${t("from {source}", { source: game.packs.get(got.from)?.metadata?.label ?? got.from })}` : ""}${got.note ? ` (${got.note})` : ""}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
     }
@@ -330,6 +353,7 @@ export class CuriosGenerator {
       }
       foundry.utils.setProperty(got.data, "system.epic", true);
       const lit = maybeLight(got.data, { force: light });
+      maybeHint(got.data);
       const smart = await maybeIntelligent(this.api, got.data, intel);
       const label = t({ "magic:ring": /*t*/"Epic ring", "magic:rod": /*t*/"Epic rod", "magic:staff": /*t*/"Epic staff", "magic:wondrous": /*t*/"Epic wondrous item" }[category]);
       return { name: got.name, data: got.data, summary: `${label}, ${gp(Number(got.data.system.price) || got.price)} ${t("(SRD epic table)")}${got.note ? ` (${got.note})` : ""}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
@@ -352,6 +376,7 @@ export class CuriosGenerator {
     const h = pick(pool);
     const got = await this.fixedItem({ name: h.name, item: h.name }, { unidentified });
     const lit = maybeLight(got.data, { force: light });
+    maybeHint(got.data);
     const smart = await maybeIntelligent(this.api, got.data, intel);
     return { name: got.name, data: got.data, summary: `${t("Psionic item")}, ${gp(Number(got.data.system.price) || got.price)}${lit ? LIT() : ""}${smart ? `; ${smart.summary}` : ""}` };
   }

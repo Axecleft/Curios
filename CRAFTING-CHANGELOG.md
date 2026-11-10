@@ -1,5 +1,10 @@
 # Axecleft's Crafting (shared engine) — changelog
 
+## Version 1.98
+
+- **The window gets out of the way once a request is sent.** After *Send to the GM* (or *Approve and craft now*) the crafting window closes: the next step, the GM's approval and then the checks, is on the chat card. On a phone with Axecleft's VooDoo the phone switches to its Chat, so a player no longer has to close the window to find the card.
+- **The end of a craft is announced.** The request card is updated in place, often far up the chat, so finishing an item only made the roll buttons disappear. Now a short line goes to the bottom of the chat (*Finished — Poison dart trap kit is in Lyra's inventory*; also *Failed* and *Materials ruined*), seen by the same people as the card, and a notification pops up.
+
 ## Version 1.97
 
 - **Feats in the world's language**: requirement lines and epic notes show a feat by the name this world uses (D35E's Feats compendium through Babele: *Création d'armes et d'armures magiques*), loaded once when the world is ready. English worlds are unchanged.

@@ -34,7 +34,7 @@
  * both the nonepic and the epic creation feat (plan.epicFeat, or the epic version of plan.feat), only while the shared Epic
  * items switch is on; time 1 day per 10,000 gp of base price (Axecleft house rule; reported, not enforced).
  */
-const AXECLEFT_CRAFTING_VERSION = 1.97; // 1.97: feat names as the world shows them (translated Feats compendium), the tab name on chat cards in the world's language, construction lines in French, Spanish or Portuguese (NLS, Coût … po + … PX, Prix … po), magic traps' costs (plan.days); 1.96: tours of the crafting tabs (Tour Management, and the window's ⋮ menu); 1.94: skill bonuses for estimates from D35E's source details (the total the sheet shows); 1.93: a check's progress can be counted in another coin (check.progress: cp, sp, gp or pp; trap kits' setting); 1.92: spell sources include a staff (power stone, dorje, psicrown); 1.9: text in the world's language (Axecleft's Tools 8.2 language files); 1.91: Foundry v11 (Tools 9 window, chat)
+const AXECLEFT_CRAFTING_VERSION = 1.98; // 1.98: the window closes once a request is sent (the checks are rolled from the chat card), and a VooDoo phone shows its Chat; the end of a craft (finished, failed, materials ruined) is posted as a new chat line and a notification, not only on the request card higher up; 1.97: feat names as the world shows them (translated Feats compendium), the tab name on chat cards in the world's language, construction lines in French, Spanish or Portuguese (NLS, Coût … po + … PX, Prix … po), magic traps' costs (plan.days); 1.96: tours of the crafting tabs (Tour Management, and the window's ⋮ menu); 1.94: skill bonuses for estimates from D35E's source details (the total the sheet shows); 1.93: a check's progress can be counted in another coin (check.progress: cp, sp, gp or pp; trap kits' setting); 1.92: spell sources include a staff (power stone, dorje, psicrown); 1.9: text in the world's language (Axecleft's Tools 8.2 language files); 1.91: Foundry v11 (Tools 9 window, chat)
 const AXECLEFT_CRAFTING_HOST = (() => {
   try { return decodeURIComponent(new URL(import.meta.url).pathname).match(/\/modules\/([^/]+)\//)?.[1] ?? null; } catch (e) { return null; }
 })();
@@ -463,6 +463,23 @@ const AXECLEFT_CRAFTING_HOST = (() => {
     await message.update({ content: cardHTML(r), [`flags.${FLAG}.${KEY}`]: r });
   }
 
+  /**
+   * Say how a craft ended where the crafter is looking: the request card is updated in place, often far up the chat,
+   * so a short line goes to the bottom of the chat (seen by the same people as the card) and a notification pops up.
+   */
+  async function announce(message, r, actor) {
+    const label = STATE[r.state] ? t(STATE[r.state]) : r.state;
+    const text = r.note ? `${label} — ${t(r.note)}` : label;
+    if (r.state === "done") ui.notifications.info(text); else ui.notifications.warn(text);
+    try {
+      await ChatMessage.create({
+        speaker: actor ? ChatMessage.getSpeaker({ actor }) : message.speaker,
+        whisper: message.whisper ?? [],
+        content: `<div class="axecleft-crafting-card"><h3><i class="fas fa-hammer"></i> ${esc(t("Crafting: {name}", { name: r.plan?.name ?? "" }))}</h3><div class="acr-state acr-${esc(r.state)}"><strong>${esc(label)}</strong>${r.note ? ` — ${esc(t(r.note))}` : ""}</div></div>`,
+      });
+    } catch (err) { console.warn("Axecleft's Crafting | could not post the result", err); }
+  }
+
   /** Send a plan as a request (or, for the GM, craft it at once: approved, then rolled). */
   async function submit({ kindId, actor, values, plan, approve = false, message = null }) {
     const kind = kindOf(kindId);
@@ -530,6 +547,7 @@ const AXECLEFT_CRAFTING_HOST = (() => {
     r.state = "done";
     r.note = t("{item} is in {name}'s inventory", { item: p.name, name: actor.name });
     await saveRequest(message, r);
+    await announce(message, r, actor);
   }
 
   /** Apply a check result (SRD Craft: fail by 4 or less, no progress; by 5 or more, half the raw materials ruined). */
@@ -546,13 +564,14 @@ const AXECLEFT_CRAFTING_HOST = (() => {
       if (res?.status === "waiting") res.status = outcome(c, res.total);
     }
     const st = (p.checks ?? []).map((c) => r.results?.[c.key]?.status);
-    if (st.includes("lost")) { r.state = "failed"; r.note = t("the Spellcraft check failed by 5 or more; the gp and XP spent are lost"); return saveRequest(message, r); }
+    if (st.includes("lost")) { r.state = "failed"; r.note = t("the Spellcraft check failed by 5 or more; the gp and XP spent are lost"); await saveRequest(message, r); return announce(message, r, actor); }
     const ruined = (p.checks ?? []).filter((c) => r.results?.[c.key]?.status === "ruined");
     if (ruined.length) {
       r.state = "ruined";
       r.repay = round2(ruined.reduce((s, c) => s + (c.raw ?? (c.price ?? 0) / 3) / 2, 0));
       r.note = t("half the raw materials for {checks} are ruined", { checks: ruined.map((c) => c.label).join(t(" and ")) });
-      return saveRequest(message, r);
+      await saveRequest(message, r);
+      return announce(message, r, actor);
     }
     if (st.every((s) => s === "passed")) return finish(message, r, actor);
     r.state = "rolling";
@@ -781,6 +800,9 @@ const AXECLEFT_CRAFTING_HOST = (() => {
       if (action === "update") { await submit({ kindId: this.kindId, actor, values: this.values, plan, message: this.message }); this.message = null; return this.close(); }
       await submit({ kindId: this.kindId, actor, values: this.values, plan, approve: action === "craft" });
       ui.notifications.info(action === "craft" ? t("Crafting {item}.", { item: plan.name }) : t("Request for {item} sent to the GM.", { item: plan.name }));
+      // The next step (the GM's approval, then the checks) is on the chat card: get out of the way
+      await this.close();
+      try { game.modules.get("axeclefts-voodoo")?.api?.showView?.("chat"); } catch (e) { /* not a VooDoo phone */ }
     }
   }
 
