@@ -1,4 +1,8 @@
 # Axecleft's Curios — changelog
+## 1.14.9.34
+
+- **Merchants that take one currency** (Axecleft's Shop 1.40, suggested by Seph): in a merchant's GM shop settings, **Coins it takes** can be any coins, the standard coins only, or one of D35E's custom currencies (such as *Minted Geld*). With a custom currency, prices show and are paid in whole coins of it, and what the merchant buys he pays in it too. See MERCHANT-GENERATOR-CHANGELOG.md.
+
 ## 1.14.9.33
 
 - **One link installs the whole suite.** Every Axecleft module now recommends all the others (Gemstones, Armory, Curios, Traps, Adventurers and Minions, Hoard Editor, Printable Sheets, VooDoo and the Tools Suite manager), so installing any one of them offers to install the rest.
